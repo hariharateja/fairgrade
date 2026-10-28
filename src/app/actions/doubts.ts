@@ -94,7 +94,7 @@ export async function escalateDoubt(examId: string, doubtId: string) {
 }
 
 /**
- * Settles a doubt with final marks. If the doubt is linked to a student's script, the marks
+ * Settles a doubt with final marks. If the doubt is linked to a student's answer sheet, the marks
  * are written to that grade. Moderators can also publish the decision as a shared ruling.
  */
 export async function resolveDoubt(

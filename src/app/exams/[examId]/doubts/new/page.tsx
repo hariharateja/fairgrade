@@ -25,7 +25,7 @@ export default async function NewDoubt({ params, searchParams }: PageProps<"/exa
   const presetStudent = typeof sp.student === "string" ? sp.student : "";
   const presetQuestion = typeof sp.question === "string" ? sp.question : "";
 
-  // Include the preset student even if the script isn't allocated to this TA.
+  // Include the preset student even if the answer sheet isn't allocated to this TA.
   let students = allocations.map((a) => a.student);
   if (presetStudent && !students.some((s) => s.id === presetStudent)) {
     const s = await db.user.findUnique({ where: { id: presetStudent }, select: { id: true, name: true, rollNo: true } });
@@ -64,9 +64,9 @@ export default async function NewDoubt({ params, searchParams }: PageProps<"/exa
                 ))}
               </select>
             </Field>
-            <Field label="Student's script" hint="Link the script so the decision can be applied to the student's marks directly.">
+            <Field label="Student's answer sheet" hint="Link the answer sheet so the decision can be applied to the student's marks directly.">
               <select name="studentId" defaultValue={presetStudent}>
-                <option value="">Not linked to a script (general question)</option>
+                <option value="">Not linked to an answer sheet (general question)</option>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>
                     {studentLabel(exam, s)}

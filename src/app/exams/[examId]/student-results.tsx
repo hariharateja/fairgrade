@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { createCrib } from "@/app/actions/cribs";
 import { ActionForm, PhotoInput, SubmitButton } from "@/components/forms";
-import { Badge, Card, EmptyState, Field, Notice, cx } from "@/components/ui";
+import { Badge, Card, EmptyState, Field, Notice, buttonClass, cx } from "@/components/ui";
 import { fmt, isPast, parseJson } from "@/lib/utils";
 
 const CRIB_STATUS = {
@@ -21,7 +21,7 @@ export async function StudentResults({
     return <EmptyState title="Results aren't out yet">You&rsquo;ll see your marks here once the instructor publishes them.</EmptyState>;
   }
 
-  const [questions, grades, cribs] = await Promise.all([
+  const [questions, grades, cribs, sheet] = await Promise.all([
     db.question.findMany({
       where: { examId: exam.id },
       orderBy: { order: "asc" },
@@ -32,6 +32,7 @@ export async function StudentResults({
       include: { history: { orderBy: { createdAt: "asc" } } },
     }),
     db.crib.findMany({ where: { examId: exam.id, studentId: userId } }),
+    db.answerSheet.findUnique({ where: { examId_studentId: { examId: exam.id, studentId: userId } } }),
   ]);
 
   const total = grades.reduce((s, g) => s + g.marks, 0);
@@ -59,6 +60,18 @@ export async function StudentResults({
           )}
         </div>
       </Card>
+
+      {sheet ? (
+        <Card className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+          <div>
+            <div className="font-medium text-slate-900">Your scanned answer sheet</div>
+            <p className="text-sm text-slate-600">Check your marks against your own answers. It&rsquo;s also attached to any crib you raise.</p>
+          </div>
+          <a href={`/api/sheets/${sheet.id}`} target="_blank" rel="noreferrer" className={buttonClass("secondary")}>
+            Open PDF
+          </a>
+        </Card>
+      ) : null}
 
       <Notice>
         Every mark comes from the instructor&rsquo;s rubric. If you think a criterion applies to your answer but wasn&rsquo;t
@@ -161,7 +174,14 @@ export async function StudentResults({
                     <Field label="Explain where your answer meets it" hint="At least 30 characters. Point to the line or step in your answer.">
                       <textarea name="reason" rows={3} minLength={30} required />
                     </Field>
-                    <Field label="Photo of your answer" hint="Strongly recommended; reviewers decide faster with it.">
+                    <Field
+                      label={sheet ? "Extra photos (optional)" : "Photo of your answer"}
+                      hint={
+                        sheet
+                          ? "Your scanned answer sheet is attached automatically. Add photos only to highlight something specific."
+                          : "Strongly recommended; reviewers decide faster with it."
+                      }
+                    >
                       <PhotoInput />
                     </Field>
                     <SubmitButton pendingText="Submitting…">Submit crib</SubmitButton>

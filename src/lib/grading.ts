@@ -66,7 +66,7 @@ export async function saveGrade(input: {
 
 /**
  * After a rubric edit, recomputes every grade on the question that was computed from the
- * rubric (not manually overridden), so earlier-graded scripts stay consistent with later ones.
+ * rubric (not manually overridden), so earlier-graded answer sheets stay consistent with later ones.
  */
 export async function recomputeQuestionGrades(questionId: string, changedById: string) {
   const question = await db.question.findUniqueOrThrow({

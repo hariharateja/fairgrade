@@ -1,0 +1,7 @@
+# Never upload local secrets or local-only data when deploying with the Vercel CLI.
+# Production values live in Vercel's Environment Variables.
+.env
+.env.*
+!.env.example
+prisma/*.db
+uploads

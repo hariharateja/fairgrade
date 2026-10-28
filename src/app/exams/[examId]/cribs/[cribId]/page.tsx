@@ -25,6 +25,10 @@ export default async function CribPage({ params }: PageProps<"/exams/[examId]/cr
   if (!crib) notFound();
 
   const q = crib.question;
+  const sheet = await db.answerSheet.findUnique({
+    where: { examId_studentId: { examId, studentId: crib.studentId } },
+    select: { id: true },
+  });
   const applied = parseJson<string[]>(crib.grade.appliedItemIds, []);
   const images = parseJson<string[]>(crib.imagePaths, []);
   const cited = q.rubricItems.find((i) => i.id === crib.rubricItemId);
@@ -70,7 +74,20 @@ export default async function CribPage({ params }: PageProps<"/exams/[examId]/cr
                 </div>
               )}
               <p className="whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm text-slate-800">{crib.reason}</p>
-              {images.length > 0 ? (
+              {sheet ? (
+                <a
+                  href={`/api/sheets/${sheet.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-100"
+                >
+                  <span>Scanned answer sheet (uploaded by the grader)</span>
+                  <span>Open PDF →</span>
+                </a>
+              ) : (
+                <Notice tone="amber">No scan was uploaded for this answer sheet. Check the paper copy if needed.</Notice>
+              )}
+              {images.length > 0 && (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {images.map((name) => (
                     <a key={name} href={`/api/files/${name}`} target="_blank" rel="noreferrer">
@@ -79,8 +96,6 @@ export default async function CribPage({ params }: PageProps<"/exams/[examId]/cr
                     </a>
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-slate-500">No photo attached. Check the physical script if needed.</p>
               )}
             </CardBody>
           </Card>

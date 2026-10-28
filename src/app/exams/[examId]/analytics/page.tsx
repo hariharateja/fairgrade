@@ -71,13 +71,13 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
               <li key={`${f.graderId}-${f.questionId}`}>
                 <strong>{nameOf.get(f.graderId)}</strong> on {questions.find((q) => q.id === f.questionId)?.label}:{" "}
                 {f.flag === "lenient" ? "more lenient" : "harsher"} by {fmt(Math.abs(f.diff ?? 0))} marks on average (
-                {fmt(Math.abs(f.effect ?? 0))} SD, n={f.n}). Consider spot-checking their scripts or adding a ruling.
+                {fmt(Math.abs(f.effect ?? 0))} SD, n={f.n}). Consider spot-checking their answer sheets or adding a ruling.
               </li>
             ))}
           </ul>
         </Notice>
       ) : (
-        <Notice tone="green">No grader stands out on any question so far. Keep an eye on this as more scripts are graded.</Notice>
+        <Notice tone="green">No grader stands out on any question so far. Keep an eye on this as more answer sheets are graded.</Notice>
       )}
 
       <Card>
@@ -86,7 +86,7 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
           <thead>
             <tr>
               <th>Grader</th>
-              <th>Scripts</th>
+              <th>Answer sheets</th>
               <th className="w-1/4">Avg. score given</th>
               <th>Overrides</th>
               <th>Doubts raised</th>
@@ -137,7 +137,7 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
           <Card key={q.id}>
             <CardHeader
               title={q.label}
-              description={`${s.n} scripts · mean ${fmt(s.mean)} / ${fmt(q.maxMarks)} · SD ${fmt(s.sd)}`}
+              description={`${s.n} answer sheets · mean ${fmt(s.mean)} / ${fmt(q.maxMarks)} · SD ${fmt(s.sd)}`}
               action={
                 <Link href={`/exams/${examId}/rulings`} className="text-sm text-indigo-700 hover:underline">
                   Rulings →
@@ -184,12 +184,12 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
         <CardHeader title="How this works" />
         <CardBody className="space-y-2 text-sm text-slate-600">
           <p>
-            Scripts are allocated randomly, so each grader&rsquo;s students are a fair sample of the class and their average on a question
+            Answer sheets are allocated randomly, so each grader&rsquo;s students are a fair sample of the class and their average on a question
             should match everyone else&rsquo;s. For every grader and question we compare the grader&rsquo;s marks with all other graders&rsquo;
             marks on that question (Welch&rsquo;s test).
           </p>
           <p>
-            A pair is flagged when the grader has at least 5 scripts, the gap is at least half a standard deviation, and it&rsquo;s
+            A pair is flagged when the grader has at least 5 answer sheets, the gap is at least half a standard deviation, and it&rsquo;s
             statistically significant (p &lt; 0.05). A flag is a prompt to look closer, not proof of bias.
           </p>
         </CardBody>

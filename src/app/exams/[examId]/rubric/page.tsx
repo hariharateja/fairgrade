@@ -98,7 +98,7 @@ export default async function RubricPage({ params }: PageProps<"/exams/[examId]/
                 <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3">
                   <span className="text-xs text-slate-500">
                     {q._count.grades > 0
-                      ? `${q._count.grades} scripts graded. Saving recalculates them with the new rubric.`
+                      ? `${q._count.grades} answer sheets graded. Saving recalculates them with the new rubric.`
                       : "Not graded yet."}
                   </span>
                   <SubmitButton size="sm" pendingText="Saving…">

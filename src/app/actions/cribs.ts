@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireExam, isModerator } from "@/lib/access";
 import { AiError, screenCrib } from "@/lib/ai";
 import { saveImages } from "@/lib/files";
+import { getObject } from "@/lib/storage";
 import { questionContext, rubricTotal, saveGrade } from "@/lib/grading";
 import { parseJson } from "@/lib/utils";
 import type { ActionResult } from "@/components/forms";
@@ -66,6 +67,11 @@ export async function createCrib(examId: string, questionId: string, _prev: Acti
     },
   });
 
+  // Give the AI the grader's scan of the whole answer sheet when there is one (and it's not huge).
+  const sheet = await db.answerSheet.findUnique({ where: { examId_studentId: { examId, studentId: user.id } } });
+  const sheetPdfBase64 =
+    sheet && sheet.sizeBytes <= 15 * 1024 * 1024 ? (await getObject(sheet.fileName)).toString("base64") : undefined;
+
   try {
     const { mode, advice } = await screenCrib({
       question: await questionContext(questionId),
@@ -74,6 +80,7 @@ export async function createCrib(examId: string, questionId: string, _prev: Acti
       citedItemId: rubricItemId,
       reason,
       imageNames,
+      sheetPdfBase64,
     });
     await db.crib.update({
       where: { id: crib.id },

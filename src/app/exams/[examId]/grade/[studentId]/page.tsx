@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireExam, canEditGrades } from "@/lib/access";
+import { requireExam, canEditGrades, isModerator } from "@/lib/access";
 import { saveScript } from "@/app/actions/grading";
 import { GradingSheet, type SheetQuestion } from "@/components/grading-sheet";
+import { SheetUploader } from "@/components/sheet-uploader";
 import { Badge, EmptyState, Notice } from "@/components/ui";
 import { parseJson, studentLabel } from "@/lib/utils";
 
@@ -11,7 +12,8 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
   const { examId, studentId } = await params;
   const sp = await searchParams;
   const { user, exam, role } = await requireExam(examId, ["INSTRUCTOR", "HEAD_TA", "TA"]);
-  const showAll = sp.view === "all";
+  // Moderators have no allocation of their own, so they default to everyone.
+  const showAll = sp.view ? sp.view === "all" : isModerator(role);
 
   const membership = await db.membership.findUnique({
     where: { userId_courseId: { userId: studentId, courseId: exam.courseId } },
@@ -20,7 +22,7 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
   if (!membership || membership.role !== "STUDENT") notFound();
   const student = membership.user;
 
-  const [questions, grades, doubts, allocation, queue] = await Promise.all([
+  const [questions, grades, doubts, allocation, answerSheet, queue] = await Promise.all([
     db.question.findMany({
       where: { examId },
       orderBy: { order: "asc" },
@@ -29,6 +31,10 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
     db.grade.findMany({ where: { examId, studentId }, include: { grader: { select: { name: true } } } }),
     db.doubt.findMany({ where: { examId, studentId, status: { not: "RESOLVED" } }, select: { questionId: true } }),
     db.allocation.findUnique({ where: { examId_studentId: { examId, studentId } }, include: { ta: true } }),
+    db.answerSheet.findUnique({
+      where: { examId_studentId: { examId, studentId } },
+      include: { uploadedBy: { select: { name: true } } },
+    }),
     // Grading order: the same list the queue page shows.
     showAll
       ? db.membership.findMany({
@@ -51,7 +57,7 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
     .map((s) => ({ id: s.id, label: studentLabel(exam, s) }))
     .sort((a, b) => a.label.localeCompare(b.label));
   const index = ordered.findIndex((s) => s.id === studentId);
-  const suffix = showAll ? "?view=all" : "";
+  const suffix = showAll ? "?view=all" : "?view=mine";
   const prev = index > 0 ? ordered[index - 1] : null;
   const next = index >= 0 && index < ordered.length - 1 ? ordered[index + 1] : null;
 
@@ -86,12 +92,12 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href={`/exams/${examId}/grade${suffix}`} className="text-sm text-slate-500 hover:underline">
-            ← Back to queue
+            ← Back to answer sheets
           </Link>
           <h2 className="text-xl font-semibold">{studentLabel(exam, student)}</h2>
           {index >= 0 && (
             <p className="text-sm text-slate-500">
-              Script {index + 1} of {ordered.length}
+              Answer sheet {index + 1} of {ordered.length}
             </p>
           )}
         </div>
@@ -109,7 +115,7 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
         </div>
       </div>
 
-      {notMine && <Notice tone="amber">This script is allocated to {allocation.ta.name}. Your changes will still be recorded under the original grader for consistency stats.</Notice>}
+      {notMine && <Notice tone="amber">This answer sheet is allocated to {allocation.ta.name}. Your changes will still be recorded under the original grader for consistency stats.</Notice>}
       {!editable && (
         <Notice tone="amber">
           {exam.status === "DRAFT" ? "Grading hasn't started yet." : "Grades are locked. You're viewing them read-only."}
@@ -121,6 +127,22 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
           <Badge tone="amber">Moderator</Badge>
         </Notice>
       )}
+
+      <SheetUploader
+        examId={examId}
+        studentId={studentId}
+        editable={editable}
+        sheet={
+          answerSheet
+            ? {
+                id: answerSheet.id,
+                sizeBytes: answerSheet.sizeBytes,
+                uploadedBy: answerSheet.uploadedBy.name,
+                updatedAt: answerSheet.updatedAt.toISOString(),
+              }
+            : null
+        }
+      />
 
       <GradingSheet
         key={studentId}

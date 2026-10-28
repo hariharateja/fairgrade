@@ -189,7 +189,7 @@ export default async function DoubtPage({ params }: PageProps<"/exams/[examId]/d
                 <p className="text-slate-600">
                   Decided by {doubt.resolvedBy?.name}
                   {doubt.resolvedAt && ` ${timeAgo(doubt.resolvedAt)}`}
-                  {doubt.studentId && " and applied to the student's script"}.
+                  {doubt.studentId && " and applied to the student's answer sheet"}.
                 </p>
                 {doubt.resolutionNote && <p className="text-slate-800">{doubt.resolutionNote}</p>}
                 {doubt.rulings.map((r) => (
@@ -206,7 +206,7 @@ export default async function DoubtPage({ params }: PageProps<"/exams/[examId]/d
                 description={
                   doubt.studentId
                     ? `Writes the marks to this student's ${q.label}${currentGrade ? ` (currently ${fmt(currentGrade.marks)})` : ""}.`
-                    : "Not linked to a script, so this only records the decision."
+                    : "Not linked to an answer sheet, so this only records the decision."
                 }
               />
               <CardBody>

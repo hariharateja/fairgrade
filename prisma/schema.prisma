@@ -21,19 +21,21 @@ model User {
   createdAt    DateTime @default(now())
 
   memberships     Membership[]
-  coursesOwned    Course[]          @relation("CourseOwner")
-  gradesGiven     Grade[]           @relation("GradeGrader")
-  gradesReceived  Grade[]           @relation("GradeStudent")
-  allocationsAsTa Allocation[]      @relation("AllocationTa")
-  allocationsAsSt Allocation[]      @relation("AllocationStudent")
-  doubtsRaised    Doubt[]           @relation("DoubtRaiser")
-  doubtsResolved  Doubt[]           @relation("DoubtResolver")
-  doubtsAbout     Doubt[]           @relation("DoubtStudent")
+  coursesOwned    Course[]       @relation("CourseOwner")
+  gradesGiven     Grade[]        @relation("GradeGrader")
+  gradesReceived  Grade[]        @relation("GradeStudent")
+  allocationsAsTa Allocation[]   @relation("AllocationTa")
+  allocationsAsSt Allocation[]   @relation("AllocationStudent")
+  doubtsRaised    Doubt[]        @relation("DoubtRaiser")
+  doubtsResolved  Doubt[]        @relation("DoubtResolver")
+  doubtsAbout     Doubt[]        @relation("DoubtStudent")
   doubtComments   DoubtComment[]
   rulings         Ruling[]
-  cribsFiled      Crib[]            @relation("CribStudent")
-  cribsReviewed   Crib[]            @relation("CribReviewer")
+  cribsFiled      Crib[]         @relation("CribStudent")
+  cribsReviewed   Crib[]         @relation("CribReviewer")
   gradeChanges    GradeHistory[]
+  answerSheets    AnswerSheet[]  @relation("SheetStudent")
+  sheetsUploaded  AnswerSheet[]  @relation("SheetUploader")
 }
 
 // Role is per course: the same person can be a TA in one course and a student in another.
@@ -52,14 +54,14 @@ model Membership {
 }
 
 model Course {
-  id            String   @id @default(cuid())
-  code          String
-  name          String
-  term          String?
-  ownerId       String
-  studentJoinCode String @unique
-  taJoinCode      String @unique
-  createdAt     DateTime @default(now())
+  id              String   @id @default(cuid())
+  code            String
+  name            String
+  term            String?
+  ownerId         String
+  studentJoinCode String   @unique
+  taJoinCode      String   @unique
+  createdAt       DateTime @default(now())
 
   owner       User         @relation("CourseOwner", fields: [ownerId], references: [id])
   memberships Membership[]
@@ -68,31 +70,32 @@ model Course {
 
 // status: DRAFT -> GRADING -> PUBLISHED -> CLOSED
 model Exam {
-  id            String    @id @default(cuid())
-  courseId      String
-  title         String
-  totalMarks    Float
-  status        String    @default("DRAFT")
-  blindGrading  Boolean   @default(false)
-  cribDeadline  DateTime?
-  createdAt     DateTime  @default(now())
+  id           String    @id @default(cuid())
+  courseId     String
+  title        String
+  totalMarks   Float
+  status       String    @default("DRAFT")
+  blindGrading Boolean   @default(false)
+  cribDeadline DateTime?
+  createdAt    DateTime  @default(now())
 
-  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course      Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   questions   Question[]
   grades      Grade[]
   allocations Allocation[]
   doubts      Doubt[]
   cribs       Crib[]
+  sheets      AnswerSheet[]
 }
 
 model Question {
-  id          String  @id @default(cuid())
+  id          String @id @default(cuid())
   examId      String
   label       String // "Q1", "Q2b", ...
   order       Int
   maxMarks    Float
-  prompt      String  @default("")
-  modelAnswer String  @default("")
+  prompt      String @default("")
+  modelAnswer String @default("")
 
   exam        Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
   rubricItems RubricItem[]
@@ -128,24 +131,24 @@ model Allocation {
 }
 
 model Grade {
-  id              String   @id @default(cuid())
-  examId          String
-  questionId      String
-  studentId       String
-  graderId        String
-  marks           Float
-  appliedItemIds  String   @default("[]") // JSON array of RubricItem ids
+  id             String   @id @default(cuid())
+  examId         String
+  questionId     String
+  studentId      String
+  graderId       String
+  marks          Float
+  appliedItemIds String   @default("[]") // JSON array of RubricItem ids
   // True when the TA typed a total instead of letting the rubric compute it.
   // Rubric edits only recompute grades that are not overridden.
-  manualOverride  Boolean  @default(false)
-  comment         String   @default("")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  manualOverride Boolean  @default(false)
+  comment        String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  student  User     @relation("GradeStudent", fields: [studentId], references: [id], onDelete: Cascade)
-  grader   User     @relation("GradeGrader", fields: [graderId], references: [id])
+  exam     Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  student  User           @relation("GradeStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  grader   User           @relation("GradeGrader", fields: [graderId], references: [id])
   history  GradeHistory[]
   cribs    Crib[]
 
@@ -179,20 +182,20 @@ model Doubt {
   status          String    @default("AI_SUGGESTED")
   aiMode          String    @default("live") // "live" | "demo"
   aiMarks         Float?
-  aiConfidence    String?   // "high" | "medium" | "low"
+  aiConfidence    String? // "high" | "medium" | "low"
   aiTranscription String?
-  aiAnalysis      String?   // JSON: { criteria: [...], rationale, proposedRuling }
+  aiAnalysis      String? // JSON: { criteria: [...], rationale, proposedRuling }
   finalMarks      Float?
   resolutionNote  String?
   resolvedById    String?
   resolvedAt      DateTime?
   createdAt       DateTime  @default(now())
 
-  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  student    User?    @relation("DoubtStudent", fields: [studentId], references: [id])
-  raisedBy   User     @relation("DoubtRaiser", fields: [raisedById], references: [id])
-  resolvedBy User?    @relation("DoubtResolver", fields: [resolvedById], references: [id])
+  exam       Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question   Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  student    User?          @relation("DoubtStudent", fields: [studentId], references: [id])
+  raisedBy   User           @relation("DoubtRaiser", fields: [raisedById], references: [id])
+  resolvedBy User?          @relation("DoubtResolver", fields: [resolvedById], references: [id])
   comments   DoubtComment[]
   rulings    Ruling[]
 }
@@ -226,29 +229,48 @@ model Ruling {
 // A student's regrade request on one question.
 // status: OPEN | ACCEPTED | REJECTED
 model Crib {
-  id             String    @id @default(cuid())
-  examId         String
-  questionId     String
-  gradeId        String
-  studentId      String
-  rubricItemId   String?   // the rubric line the student is citing
-  reason         String
-  imagePaths     String    @default("[]")
-  status         String    @default("OPEN")
-  aiMode         String?
-  aiVerdict      String?   // "likely_valid" | "likely_invalid" | "unclear"
-  aiAnalysis     String?
+  id               String    @id @default(cuid())
+  examId           String
+  questionId       String
+  gradeId          String
+  studentId        String
+  rubricItemId     String? // the rubric line the student is citing
+  reason           String
+  imagePaths       String    @default("[]")
+  status           String    @default("OPEN")
+  aiMode           String?
+  aiVerdict        String? // "likely_valid" | "likely_invalid" | "unclear"
+  aiAnalysis       String?
   aiSuggestedMarks Float?
-  reviewerId     String?
-  marksBefore    Float
-  marksAfter     Float?
-  response       String?
-  createdAt      DateTime  @default(now())
-  resolvedAt     DateTime?
+  reviewerId       String?
+  marksBefore      Float
+  marksAfter       Float?
+  response         String?
+  createdAt        DateTime  @default(now())
+  resolvedAt       DateTime?
 
   exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   grade    Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
   student  User     @relation("CribStudent", fields: [studentId], references: [id])
   reviewer User?    @relation("CribReviewer", fields: [reviewerId], references: [id])
+}
+
+// The grader's scan of a student's whole answer sheet for an exam (one PDF).
+// Students see it with their marks, and crib reviewers and the AI read it.
+model AnswerSheet {
+  id           String   @id @default(cuid())
+  examId       String
+  studentId    String
+  fileName     String // stored object name
+  sizeBytes    Int
+  uploadedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  exam       Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student    User @relation("SheetStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("SheetUploader", fields: [uploadedById], references: [id])
+
+  @@unique([examId, studentId])
 }

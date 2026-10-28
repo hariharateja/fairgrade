@@ -10,6 +10,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import sharp from "sharp";
 import { randomUUID } from "node:crypto";
+import { PDFDocument } from "pdf-lib";
 import { clearAllObjects, putObject, storageDriver } from "../src/lib/storage";
 
 const db = new PrismaClient();
@@ -110,10 +111,11 @@ const MIDSEM: QuestionSpec[] = [
 // How each TA tends to grade: probability shift for ticking a positive criterion.
 const TA_BIAS: Record<string, number> = { rahul: 0.22, priya: -0.24, arjun: 0.02, sneha: -0.03 };
 
-async function answerPhoto(lines: string[]) {
+/** A ruled "handwritten" page as a JPEG. */
+async function answerPage(lines: string[], minHeight = 0) {
   const width = 1100;
   const lineHeight = 52;
-  const height = 120 + lines.length * lineHeight;
+  const height = Math.max(minHeight, 120 + lines.length * lineHeight);
   const rules = Array.from({ length: Math.ceil(height / lineHeight) }, (_, i) => `<line x1="0" x2="${width}" y1="${80 + i * lineHeight}" y2="${80 + i * lineHeight}" stroke="#bcd3ee" stroke-width="2"/>`).join("");
   const text = lines
     .map((l, i) => `<text x="90" y="${72 + (i + 1) * lineHeight - 8}" font-family="Bradley Hand, Segoe Print, Comic Sans MS, cursive" font-size="32" fill="#1e2a78">${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>`)
@@ -121,14 +123,33 @@ async function answerPhoto(lines: string[]) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
     <rect width="100%" height="100%" fill="#fbfaf4"/>${rules}
     <line x1="70" x2="70" y1="0" y2="${height}" stroke="#e8a0a0" stroke-width="2"/>${text}</svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 80 }).toBuffer();
+}
+
+async function answerPhoto(lines: string[]) {
   const name = `${randomUUID()}.jpg`;
-  await putObject(name, await sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer());
+  await putObject(name, await answerPage(lines));
   return name;
+}
+
+/** A multi-page scanned answer sheet PDF, one A4-ish page per entry. */
+async function answerSheetPdf(pages: string[][]) {
+  const pdf = await PDFDocument.create();
+  for (const lines of pages) {
+    const jpg = await pdf.embedJpg(await answerPage(lines, 1500));
+    const page = pdf.addPage([jpg.width, jpg.height]);
+    page.drawImage(jpg, { x: 0, y: 0, width: jpg.width, height: jpg.height });
+  }
+  const bytes = Buffer.from(await pdf.save());
+  const name = `sheet-${randomUUID()}.pdf`;
+  await putObject(name, bytes, "application/pdf");
+  return { name, size: bytes.length };
 }
 
 async function main() {
   console.log("Clearing database…");
   await db.$transaction([
+    db.answerSheet.deleteMany(),
     db.gradeHistory.deleteMany(),
     db.crib.deleteMany(),
     db.doubtComment.deleteMany(),
@@ -397,6 +418,42 @@ async function main() {
       },
     },
   });
+
+  // Scanned answer sheets: the demo student's Quiz 1 (it backs up their crib) and a few others.
+  console.log("Uploading demo answer sheet scans…");
+  const sheetFor = async (examId: string, studentId: string, graderId: string, pages: string[][]) => {
+    const { name, size } = await answerSheetPdf(pages);
+    await db.answerSheet.create({ data: { examId, studentId, fileName: name, sizeBytes: size, uploadedById: graderId } });
+  };
+  await sheetFor(quiz.exam.id, demoStudent.id, tas.priya.id, [
+    [
+      `Roll no: ${demoStudent.rollNo}      CS 213 Quiz 1`,
+      "",
+      "Q1. f(n) = O(g(n)) if there exist constants c > 0 and n0",
+      "    such that f(n) <= c.g(n) for all n >= n0.",
+      "    3n^2 + 5n <= 3n^2 + n^2 = 4n^2 for n >= 5",
+      "    so c = 4, n0 = 5  =>  3n^2 + 5n = O(n^2)",
+    ],
+    [
+      "Q2. Use a stack.",
+      "for each char ch in s:",
+      "   if ch is ( [ {  : push(ch)",
+      "   else: if stack empty return false",
+      "         top = pop(); if top doesn't match ch return false",
+      "if stack is not empty at the end, return false",
+      "return true",
+      "Time O(n), each char pushed/popped once.",
+    ],
+  ]);
+  const quizSheetStudents = (await db.allocation.findMany({ where: { examId: quiz.exam.id }, take: 7 }))
+    .filter((a) => a.studentId !== demoStudent.id)
+    .slice(0, 5);
+  for (const a of quizSheetStudents) {
+    await sheetFor(quiz.exam.id, a.studentId, a.taId, [
+      ["CS 213 Quiz 1", "", "Q1. Big-O: f(n) <= c g(n) for large n", "3n^2+5n is O(n^2) since n^2 dominates"],
+      ["Q2. push opening brackets, pop on closing,", "check they match. O(n)."],
+    ]);
+  }
 
   // Cribs on Quiz 1
   const quizQ1 = quiz.questions[0];

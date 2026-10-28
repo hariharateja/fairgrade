@@ -21,7 +21,7 @@ export default async function RegisterPage() {
           <Field label="Institute email" htmlFor="email">
             <input id="email" name="email" type="email" autoComplete="email" required />
           </Field>
-          <Field label="Roll number" htmlFor="rollNo" hint="Students: required so your marks match your answer script.">
+          <Field label="Roll number" htmlFor="rollNo" hint="Students: required so your marks match your answer sheet.">
             <input id="rollNo" name="rollNo" placeholder="e.g. 22B0123" />
           </Field>
           <Field label="Password" htmlFor="password" hint="At least 8 characters.">

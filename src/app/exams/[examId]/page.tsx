@@ -30,7 +30,7 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
   if (role === "STUDENT") return <StudentResults exam={exam} userId={user.id} />;
 
   const instructor = role === "INSTRUCTOR";
-  const [questions, graders, students, allocations, gradeCounts, doubts, cribs] = await Promise.all([
+  const [questions, graders, students, allocations, gradeCounts, doubts, cribs, sheets] = await Promise.all([
     db.question.count({ where: { examId } }),
     db.membership.findMany({
       where: { courseId: exam.courseId, role: { in: ["TA", "HEAD_TA"] } },
@@ -41,9 +41,11 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
     db.grade.groupBy({ by: ["studentId"], where: { examId }, _count: true }),
     db.doubt.groupBy({ by: ["status"], where: { examId }, _count: true }),
     db.crib.groupBy({ by: ["status"], where: { examId }, _count: true }),
+    db.answerSheet.findMany({ where: { examId }, select: { studentId: true } }),
   ]);
 
   const complete = new Set(gradeCounts.filter((g) => questions > 0 && g._count >= questions).map((g) => g.studentId));
+  const scanned = new Set(sheets.map((s) => s.studentId));
   const doubtCount = (s: string) => doubts.find((d) => d.status === s)?._count ?? 0;
   const cribCount = (s: string) => cribs.find((c) => c.status === s)?._count ?? 0;
   const unallocated = students - allocations.length;
@@ -57,6 +59,7 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
         head: g.role === "HEAD_TA",
         allocated: mine.length,
         done: mine.filter((a) => complete.has(a.studentId)).length,
+        scanned: mine.filter((a) => scanned.has(a.studentId)).length,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -67,7 +70,7 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Scripts graded" value={`${complete.size} / ${students}`} hint={students ? `${Math.round((complete.size / students) * 100)}% complete` : undefined} />
+        <Stat label="Answer sheets marked" value={`${complete.size} / ${students}`} hint={`${scanned.size} of ${students} scanned`} />
         <Stat label="Questions" value={questions} hint={`${exam.totalMarks} marks total`} />
         <Stat label="Doubts" value={doubtCount("AI_SUGGESTED") + doubtCount("ESCALATED")} hint={`${doubtCount("ESCALATED")} escalated · ${doubtCount("RESOLVED")} resolved`} />
         <Stat label="Open cribs" value={cribCount("OPEN")} hint={`${cribCount("ACCEPTED")} accepted · ${cribCount("REJECTED")} rejected`} />
@@ -77,8 +80,8 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
         <Card>
           <CardHeader
             title="Your grading"
-            description={`${myRow.done} of ${myRow.allocated} allocated scripts complete`}
-            action={exam.status === "GRADING" ? <LinkButton href={`/exams/${examId}/grade`}>Go to my scripts</LinkButton> : undefined}
+            description={`${myRow.done} of ${myRow.allocated} allocated answer sheets complete`}
+            action={exam.status === "GRADING" ? <LinkButton href={`/exams/${examId}/grade`}>Go to my answer sheets</LinkButton> : undefined}
           />
           <CardBody>
             <Progress value={myRow.done} max={myRow.allocated} />
@@ -138,7 +141,7 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
           <Card className="lg:col-span-2">
             <CardHeader
               title="Grader progress"
-              description="Scripts are spread randomly and evenly, so each TA's averages should be comparable."
+              description="Answer sheets are spread randomly and evenly, so each TA's averages should be comparable."
             />
             {perGrader.length === 0 ? (
               <CardBody>
@@ -150,7 +153,8 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
                   <tr>
                     <th>Grader</th>
                     <th>Allocated</th>
-                    <th className="w-1/3">Complete</th>
+                    <th className="w-1/3">Marked</th>
+                    <th>Scanned</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,6 +173,9 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
                           </span>
                         </div>
                       </td>
+                      <td className={`tabular-nums ${g.scanned < g.done ? "text-amber-700" : "text-slate-600"}`}>
+                        {g.scanned}/{g.allocated}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -177,7 +184,7 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
           </Card>
 
           <Card>
-            <CardHeader title="Allocate scripts" description={`${unallocated} of ${students} students unallocated`} />
+            <CardHeader title="Allocate answer sheets" description={`${unallocated} of ${students} students unallocated`} />
             <CardBody className="space-y-3">
               <form action={allocateScripts.bind(null, examId)}>
                 <SubmitButton className="w-full" variant="secondary" pendingText="Allocating…">
@@ -189,14 +196,14 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
                 <SubmitButton
                   className="w-full"
                   variant="ghost"
-                  confirm="Redistribute every script that has no marks yet?"
+                  confirm="Redistribute every answer sheet that has no marks yet?"
                   pendingText="Reshuffling…"
                 >
-                  Reshuffle ungraded scripts
+                  Reshuffle ungraded answer sheets
                 </SubmitButton>
               </form>
               <p className="text-xs text-slate-500">
-                New TAs joined? Reshuffle to rebalance. Scripts that already have marks stay with their grader.
+                New TAs joined? Reshuffle to rebalance. Answer sheets that already have marks stay with their grader.
               </p>
             </CardBody>
           </Card>
@@ -222,7 +229,7 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
                 <label className="flex items-start gap-2 font-normal">
                   <input type="checkbox" name="blindGrading" defaultChecked={exam.blindGrading} className="mt-0.5" />
                   <span className="text-sm text-slate-600">
-                    Hide names and roll numbers from TAs. They see an anonymous sheet code instead, which you print on each script.
+                    Hide names and roll numbers from TAs. They see an anonymous sheet code instead, which you print on each answer sheet.
                   </span>
                 </label>
               </div>

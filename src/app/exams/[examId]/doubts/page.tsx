@@ -66,7 +66,7 @@ export default async function DoubtsPage({ params, searchParams }: PageProps<"/e
             <thead>
               <tr>
                 <th>Question</th>
-                <th>Script</th>
+                <th>Answer sheet</th>
                 <th>Raised by</th>
                 <th>AI suggests</th>
                 <th>Status</th>

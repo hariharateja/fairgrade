@@ -14,6 +14,7 @@ When a dozen TAs grade the same descriptive exam, the same answer can get 3/5 fr
 | "I know this student" bias | Optional blind grading: TAs see an anonymous sheet code instead of names |
 | Cribs reviewed by the same TA who graded | Cribs must cite a rubric criterion, are AI pre-screened, and go to a *different* reviewer |
 | No paper trail | Every mark change is logged with who, when and why, and shown to the student |
+| Cribs that hinge on finding the paper copy | The grader uploads a scanned PDF of every answer sheet; students see it with their marks, and crib reviewers and the AI read it |
 
 The AI only recommends. A TA or the instructor always makes the final call.
 
@@ -138,7 +139,7 @@ prisma/
   seed.ts             demo data
 ```
 
-Answer photos go to a private Supabase Storage bucket (or `uploads/` when Supabase isn't configured) and are only served, through an auth-checked route, to staff of the course or to the student who attached them. Phones shrink photos before uploading, which keeps uploads under Vercel's ~4.5 MB request limit.
+Scanned answer sheets (PDF, up to 30 MB) upload straight from the browser to Supabase through a short-lived signed URL, so they skip Vercel's request limit, and open through a 5-minute signed link. Answer photos go to the same private Supabase Storage bucket (or `uploads/` when Supabase isn't configured) and are only served, through an auth-checked route, to staff of the course or to the student who attached them. Phones shrink photos before uploading, which keeps uploads under Vercel's ~4.5 MB request limit.
 
 ## Roadmap ideas
 

@@ -63,7 +63,7 @@ export async function allocateScripts(examId: string, formData: FormData) {
 
   const pending = shuffle(students.filter((s) => !allocated.has(s.userId)));
   const rows = pending.map((s) => {
-    // Give each script to the currently least-loaded grader.
+    // Give each answer sheet to the currently least-loaded grader.
     const [taId] = [...load.entries()].sort((a, b) => a[1] - b[1])[0];
     load.set(taId, (load.get(taId) ?? 0) + 1);
     return { examId, studentId: s.userId, taId };
@@ -163,7 +163,7 @@ export async function saveQuestion(
   }
   revalidatePath(`/exams/${examId}`, "layout");
   return {
-    ok: updated ? `Saved. ${updated} already-graded script${updated === 1 ? "" : "s"} recalculated with the new rubric.` : "Saved.",
+    ok: updated ? `Saved. ${updated} already-graded answer sheet${updated === 1 ? "" : "s"} recalculated with the new rubric.` : "Saved.",
     notes,
   };
 }
