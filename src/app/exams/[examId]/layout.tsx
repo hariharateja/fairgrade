@@ -5,6 +5,7 @@ import { requireExam, isModerator, isStaff, ROLE_LABEL } from "@/lib/access";
 import { ExamTabs, type Tab } from "@/components/exam-tabs";
 import { ExamStatusBadge } from "@/components/exam-status";
 import { fmt } from "@/lib/utils";
+import { isAppMode } from "@/lib/app-mode";
 
 export default async function ExamLayout({ children, params }: LayoutProps<"/exams/[examId]">) {
   const { examId } = await params;
@@ -28,6 +29,23 @@ export default async function ExamLayout({ children, params }: LayoutProps<"/exa
     ];
   }
 
+  if (await isAppMode()) {
+    // The app's top bar already handles navigation, so keep the exam header compact.
+    return (
+      <>
+        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-3 -mt-4 mb-4 border-b border-slate-200/70 bg-white/90 backdrop-blur-xl">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+            <span className="truncate font-display text-lg font-semibold text-slate-900">{exam.title}</span>
+            <ExamStatusBadge status={exam.status} student={role === "STUDENT"} />
+            <span className="ml-auto shrink-0 text-xs text-slate-500">{exam.course.code}</span>
+          </div>
+          {tabs.length > 1 && <ExamTabs tabs={tabs} />}
+        </div>
+        {children}
+      </>
+    );
+  }
+
   return (
     <>
       <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
@@ -44,7 +62,7 @@ export default async function ExamLayout({ children, params }: LayoutProps<"/exa
           </nav>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-900">{exam.title}</h1>
-            <ExamStatusBadge status={exam.status} />
+            <ExamStatusBadge status={exam.status} student={role === "STUDENT"} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
             <span>{fmt(exam.totalMarks)} marks</span>

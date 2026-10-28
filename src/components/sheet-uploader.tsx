@@ -133,7 +133,7 @@ export function SheetUploader({
         sheet ? "border-slate-200/80 bg-white" : "border-dashed border-amber-300 bg-amber-50/60",
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <IconTile tone={sheet ? "green" : "amber"}>
             <FileText />
@@ -148,7 +148,9 @@ export function SheetUploader({
                 ? `${mb(sheet.sizeBytes)} · by ${sheet.uploadedBy} · ${new Date(sheet.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
                 : "Scan every page into one PDF. The student sees it with their marks, and crib reviewers use it instead of the paper copy."}
             </p>
-            {message && <p className={cx("mt-1 text-sm", message.tone === "error" ? "text-red-600" : "text-emerald-700")}>{message.text}</p>}
+            {message && (
+              <p className={cx("mt-1 text-sm", message.tone === "error" ? "text-red-600" : "text-emerald-700")}>{message.text}</p>
+            )}
             {busy && <p className="mt-1 text-sm text-indigo-700">{busy}</p>}
             {progress !== null && (
               <div className="mt-2 h-1.5 w-64 max-w-full overflow-hidden rounded-full bg-slate-200">
@@ -157,9 +159,14 @@ export function SheetUploader({
             )}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
           {sheet && (
-            <a href={`/api/sheets/${sheet.id}`} target="_blank" rel="noreferrer" className="px-1 text-sm font-medium text-indigo-700 hover:underline">
+            <a
+              href={`/api/sheets/${sheet.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-1 text-sm font-medium text-indigo-700 hover:underline"
+            >
               Open PDF
             </a>
           )}

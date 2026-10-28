@@ -13,6 +13,8 @@ const config: CapacitorConfig = {
   appId: "app.fairgrade.mobile",
   appName: "FairGrade",
   webDir: "mobile/www",
+  // Lets the server recognise the app and render the app layout instead of the website.
+  appendUserAgent: "FairGradeApp/1.0",
   server: {
     url,
     cleartext: url.startsWith("http://"),

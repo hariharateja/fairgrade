@@ -259,7 +259,7 @@ export function GradingSheet({
       })}
 
       {editable && (
-        <div className="sticky bottom-3 z-20">
+        <div className="sticky bottom-3 z-20 [[data-app]_&]:bottom-[calc(4.75rem+env(safe-area-inset-bottom))]">
           <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-xl shadow-indigo-950/10 backdrop-blur-xl sm:px-4">
             {state?.error && (
               <div className="mb-3">

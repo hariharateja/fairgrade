@@ -1,12 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
-import { LogOut } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { aiMode, PROVIDER_LABEL } from "@/lib/ai-providers";
-import { logout } from "@/app/actions/auth";
-import { Logo } from "@/components/logo";
-import { Badge, LinkButton } from "@/components/ui";
+import { isAppMode } from "@/lib/app-mode";
+import { todoCount } from "@/lib/todo";
+import { AppTabBar, AppTopBar } from "@/components/app-shell";
+import { HeaderNav } from "@/components/header-nav";
+import { NativeBridge } from "@/components/native-bridge";
+import { Avatar, Badge, LinkButton } from "@/components/ui";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -19,46 +21,53 @@ export const metadata: Metadata = {
     "The grading platform for university courses: rubric-based marking, an AI grading assistant, scanned answer sheets, accountable TAs and evidence-based cribs.",
 };
 
-function initials(name: string) {
-  return name
-    .replace(/^(prof|dr|mr|ms|mrs)\.?\s+/i, "")
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-}
+export const viewport: Viewport = {
+  // Draw under the Android status and gesture bars; the app shell pads itself with safe-area insets.
+  viewportFit: "cover",
+  themeColor: "#ffffff",
+};
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const user = await getCurrentUser();
+  const [user, app] = await Promise.all([getCurrentUser(), isAppMode()]);
+  const fonts = `${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`;
+
+  if (app) {
+    const todos = user ? await todoCount(user.id) : 0;
+    return (
+      <html lang="en" className={fonts} data-app="">
+        <body className="flex min-h-full flex-col overflow-x-clip select-none">
+          <NativeBridge />
+          {user && <AppTopBar />}
+          <main
+            className={
+              user ? "w-full flex-1 px-3 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] select-text" : "flex w-full flex-1 flex-col select-text"
+            }
+          >
+            {children}
+          </main>
+          {user && <AppTabBar todoCount={todos} />}
+        </body>
+      </html>
+    );
+  }
+
   const mode = aiMode();
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en" className={fonts}>
       <body className="flex min-h-full flex-col overflow-x-clip">
+        <NativeBridge />
         <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/75 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-            <Link href="/" aria-label="FairGrade home">
-              <Logo />
-            </Link>
+            <HeaderNav loggedIn={!!user} />
             {user ? (
               <div className="flex items-center gap-2 text-sm sm:gap-3">
                 <span className="hidden sm:inline-flex">
                   <Badge tone={mode === "demo" ? "amber" : "indigo"}>{mode === "demo" ? "AI demo mode" : `AI: ${PROVIDER_LABEL[mode]}`}</Badge>
                 </span>
-                <div className="flex items-center gap-2">
-                  <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-xs font-semibold text-amber-950 ring-2 ring-white">
-                    {initials(user.name)}
-                  </span>
+                <Link href="/account" className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 transition hover:bg-slate-100 md:pr-3" title="Account">
+                  <Avatar name={user.name} />
                   <span className="hidden font-medium text-slate-700 md:inline">{user.name}</span>
-                </div>
-                <form action={logout}>
-                  <button
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                    title="Log out"
-                  >
-                    <LogOut className="size-4" />
-                    <span className="hidden sm:inline">Log out</span>
-                  </button>
-                </form>
+                </Link>
               </div>
             ) : (
               <nav className="flex items-center gap-1 text-sm sm:gap-2">

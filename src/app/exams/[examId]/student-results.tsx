@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
 import { createCrib } from "@/app/actions/cribs";
 import { ActionForm, PhotoInput, SubmitButton } from "@/components/forms";
-import { Badge, Card, EmptyState, Field, Notice, buttonClass, cx } from "@/components/ui";
+import { CalendarClock, CircleCheck, ClipboardCheck, Lock } from "lucide-react";
+import { STUDENT_EXAM_STATUS } from "@/components/exam-status";
+import { Badge, Card, Field, Notice, buttonClass, cx } from "@/components/ui";
 import { fmt, isPast, parseJson } from "@/lib/utils";
 
 const CRIB_STATUS = {
@@ -18,7 +20,7 @@ export async function StudentResults({
   userId: string;
 }) {
   if (exam.status !== "PUBLISHED" && exam.status !== "CLOSED") {
-    return <EmptyState title="Results aren't out yet">You&rsquo;ll see your marks here once the instructor publishes them.</EmptyState>;
+    return <ResultsPending exam={exam} />;
   }
 
   const [questions, grades, cribs, sheet] = await Promise.all([
@@ -193,5 +195,64 @@ export async function StudentResults({
         );
       })}
     </div>
+  );
+}
+
+/** What a student sees before results are published: where the exam is, but no marks. */
+async function ResultsPending({ exam }: { exam: { id: string; status: string; totalMarks: number } }) {
+  const questionCount = await db.question.count({ where: { examId: exam.id } });
+  const steps = [
+    { key: "DRAFT", label: "Upcoming", icon: CalendarClock },
+    { key: "GRADING", label: "Being graded", icon: ClipboardCheck },
+    { key: "PUBLISHED", label: "Results out", icon: CircleCheck },
+  ];
+  const current = steps.findIndex((s) => s.key === exam.status);
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-5 py-6 sm:px-8 sm:py-8">
+        <div className="flex items-start gap-4">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <Lock className="size-5" />
+          </span>
+          <div>
+            <h2 className="font-display text-2xl font-semibold tracking-tight text-slate-900">Results aren&rsquo;t published yet</h2>
+            <p className="mt-1 max-w-xl text-slate-600">{STUDENT_EXAM_STATUS[exam.status]?.help}</p>
+          </div>
+        </div>
+
+        <ol className="mt-8 grid grid-cols-3 gap-2">
+          {steps.map((step, i) => {
+            const done = i < current;
+            const active = i === current;
+            const Icon = step.icon;
+            return (
+              <li key={step.key} className="space-y-2">
+                <div className={cx("h-1.5 rounded-full", i <= current ? "bg-indigo-600" : "bg-slate-200")} />
+                <div className={cx("flex items-center gap-1.5 text-sm", active ? "font-semibold text-indigo-700" : done ? "text-slate-600" : "text-slate-400")}>
+                  <Icon className="size-4 shrink-0" /> {step.label}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {[
+            ["Questions", questionCount || "–"],
+            ["Total marks", fmt(exam.totalMarks)],
+            ["Your marks", "Hidden until published"],
+          ].map(([label, value]) => (
+            <div key={label as string} className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+              <div className="text-xs font-medium tracking-wide text-slate-500 uppercase">{label}</div>
+              <div className="mt-0.5 font-semibold text-slate-900">{value}</div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-sm text-slate-500">
+          Once results are out you&rsquo;ll see your marks question by question, the rubric behind them, your scanned answer sheet, and
+          you can raise a crib if something looks wrong.
+        </p>
+      </div>
+    </Card>
   );
 }

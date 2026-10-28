@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Check, ChevronRight, ClipboardCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireExam, isModerator, canEditGrades } from "@/lib/access";
 import { Badge, Card, EmptyState, LinkButton, Notice, Table, buttonClass } from "@/components/ui";
@@ -40,11 +41,7 @@ export default async function GradeQueue({ params, searchParams }: PageProps<"/e
     }))
     .filter((r) => showAll || r.allocation?.taId === user.id);
   if (search) {
-    rows = rows.filter(
-      (r) =>
-        r.label.toLowerCase().includes(search) ||
-        sheetCode(exam.id, r.student.id).toLowerCase().includes(search),
-    );
+    rows = rows.filter((r) => r.label.toLowerCase().includes(search) || sheetCode(exam.id, r.student.id).toLowerCase().includes(search));
   }
   rows.sort((a, b) => a.label.localeCompare(b.label));
   // An answer sheet is done only when every question is marked and the scan is uploaded.
@@ -97,9 +94,7 @@ export default async function GradeQueue({ params, searchParams }: PageProps<"/e
           {missingScans > 0 && <span className="text-amber-700"> · {missingScans} graded but not scanned yet</span>}
         </span>
         {firstPending && editable && (
-          <LinkButton href={`/exams/${examId}/grade/${firstPending.student.id}${suffix}`}>
-            Continue grading →
-          </LinkButton>
+          <LinkButton href={`/exams/${examId}/grade/${firstPending.student.id}${suffix}`}>Continue grading →</LinkButton>
         )}
       </div>
 
@@ -112,51 +107,95 @@ export default async function GradeQueue({ params, searchParams }: PageProps<"/e
               : "Ask the instructor to allocate answer sheets, or switch to All answer sheets to find one."}
         </EmptyState>
       ) : (
-        <Card>
-          <Table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                {showAll && <th>Grader</th>}
-                <th>Marks</th>
-                <th>Scan</th>
-                <th className="text-right">Total</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.student.id}>
-                  <td className="font-medium">{r.label}</td>
-                  {showAll && <td className="text-slate-600">{r.allocation?.ta.name ?? "–"}</td>}
-                  <td>
-                    {questionCount > 0 && r.graded >= questionCount ? (
-                      <Badge tone="green">All marked</Badge>
-                    ) : r.graded > 0 ? (
-                      <Badge tone="blue">
-                        {r.graded}/{questionCount}
-                      </Badge>
-                    ) : (
-                      <Badge>Not started</Badge>
-                    )}
-                  </td>
-                  <td>{r.scanned ? <Badge tone="green">PDF ✓</Badge> : <Badge tone={r.graded > 0 ? "amber" : "slate"}>Missing</Badge>}</td>
-                  <td className="text-right font-mono tabular-nums">
-                    {r.total === null ? "–" : `${fmt(r.total)} / ${fmt(exam.totalMarks)}`}
-                  </td>
-                  <td className="text-right">
-                    <Link
-                      href={`/exams/${examId}/grade/${r.student.id}${suffix}`}
-                      className="font-medium text-indigo-700 hover:underline"
-                    >
-                      {editable ? "Grade" : "View"}
-                    </Link>
-                  </td>
+        <>
+          {/* Phones: a tappable list instead of a cramped table. */}
+          <Card className="divide-y divide-slate-100 overflow-hidden sm:hidden">
+            {rows.map((r) => {
+              const marked = questionCount > 0 && r.graded >= questionCount;
+              return (
+                <Link
+                  key={r.student.id}
+                  href={`/exams/${examId}/grade/${r.student.id}${suffix}`}
+                  className="flex items-center gap-3 px-4 py-3 active:bg-slate-100"
+                >
+                  <span
+                    className={`grid size-9 shrink-0 place-items-center rounded-full ${marked && r.scanned ? "bg-emerald-100 text-emerald-700" : marked || r.graded > 0 ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-400"}`}
+                  >
+                    {marked && r.scanned ? <Check className="size-4" strokeWidth={3} /> : <ClipboardCheck className="size-4" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-slate-900">{r.label}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                      {marked ? (
+                        <Badge tone="green">All marked</Badge>
+                      ) : r.graded > 0 ? (
+                        <Badge tone="blue">
+                          {r.graded}/{questionCount} marked
+                        </Badge>
+                      ) : (
+                        <Badge>Not started</Badge>
+                      )}
+                      {r.scanned ? <Badge tone="green">PDF ✓</Badge> : r.graded > 0 && <Badge tone="amber">No scan</Badge>}
+                      {showAll && r.allocation && <span className="text-slate-400">{r.allocation.ta.name}</span>}
+                    </div>
+                  </div>
+                  <div className="text-right font-mono text-sm font-semibold tabular-nums text-slate-900">
+                    {r.total === null ? "–" : fmt(r.total)}
+                    <span className="block text-[10px] font-normal text-slate-400">/ {fmt(exam.totalMarks)}</span>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-slate-300" />
+                </Link>
+              );
+            })}
+          </Card>
+          <Card className="hidden sm:block">
+            <Table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  {showAll && <th>Grader</th>}
+                  <th>Marks</th>
+                  <th>Scan</th>
+                  <th className="text-right">Total</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.student.id}>
+                    <td className="font-medium">{r.label}</td>
+                    {showAll && <td className="text-slate-600">{r.allocation?.ta.name ?? "–"}</td>}
+                    <td>
+                      {questionCount > 0 && r.graded >= questionCount ? (
+                        <Badge tone="green">All marked</Badge>
+                      ) : r.graded > 0 ? (
+                        <Badge tone="blue">
+                          {r.graded}/{questionCount}
+                        </Badge>
+                      ) : (
+                        <Badge>Not started</Badge>
+                      )}
+                    </td>
+                    <td>
+                      {r.scanned ? <Badge tone="green">PDF ✓</Badge> : <Badge tone={r.graded > 0 ? "amber" : "slate"}>Missing</Badge>}
+                    </td>
+                    <td className="text-right font-mono tabular-nums">
+                      {r.total === null ? "–" : `${fmt(r.total)} / ${fmt(exam.totalMarks)}`}
+                    </td>
+                    <td className="text-right">
+                      <Link
+                        href={`/exams/${examId}/grade/${r.student.id}${suffix}`}
+                        className="font-medium text-indigo-700 hover:underline"
+                      >
+                        {editable ? "Grade" : "View"}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card>
+        </>
       )}
     </div>
   );

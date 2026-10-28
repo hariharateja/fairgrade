@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, KeyRound, Plus } from "lucide-react";
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { isAppMode } from "@/lib/app-mode";
 import { db } from "@/lib/db";
 import { ROLE_LABEL, type Role } from "@/lib/access";
 import { createCourse, joinCourse } from "@/app/actions/courses";
@@ -21,8 +23,13 @@ const ROLE_ACCENT: Record<Role, string> = {
 
 export default async function Home() {
   const user = await getCurrentUser();
-  if (!user) return <Landing />;
+  if (!user) {
+    // The app skips the marketing page and goes straight to sign-in.
+    if (await isAppMode()) redirect("/login");
+    return <Landing />;
+  }
 
+  const app = await isAppMode();
   const memberships = await db.membership.findMany({
     where: { userId: user.id },
     include: {
@@ -104,7 +111,12 @@ export default async function Home() {
             />
             <CardBody>
               <ActionForm action={joinCourse} className="space-y-3">
-                <input name="code" placeholder="e.g. 7F3A9C21" required className="font-mono tracking-widest uppercase placeholder:tracking-normal placeholder:normal-case" />
+                <input
+                  name="code"
+                  placeholder="e.g. 7F3A9C21"
+                  required
+                  className="font-mono tracking-widest uppercase placeholder:tracking-normal placeholder:normal-case"
+                />
                 <SubmitButton className="w-full" pendingText="Joining…">
                   Join
                 </SubmitButton>
@@ -112,32 +124,34 @@ export default async function Home() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader
-              title={
-                <span className="flex items-center gap-2">
-                  <BookOpen className="size-4 text-indigo-500" /> Create a course
-                </span>
-              }
-              description="You'll be its instructor."
-            />
-            <CardBody>
-              <ActionForm action={createCourse} className="space-y-3">
-                <Field label="Course code" htmlFor="code">
-                  <input id="code" name="code" placeholder="CS 101" required />
-                </Field>
-                <Field label="Course name" htmlFor="name">
-                  <input id="name" name="name" placeholder="Computer Programming" required />
-                </Field>
-                <Field label="Term" htmlFor="term">
-                  <input id="term" name="term" placeholder="Autumn 2026" />
-                </Field>
-                <SubmitButton className="w-full" variant="secondary" pendingText="Creating…">
-                  <Plus className="size-4" /> Create course
-                </SubmitButton>
-              </ActionForm>
-            </CardBody>
-          </Card>
+          {!app && (
+            <Card>
+              <CardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    <BookOpen className="size-4 text-indigo-500" /> Create a course
+                  </span>
+                }
+                description="You'll be its instructor."
+              />
+              <CardBody>
+                <ActionForm action={createCourse} className="space-y-3">
+                  <Field label="Course code" htmlFor="code">
+                    <input id="code" name="code" placeholder="CS 101" required />
+                  </Field>
+                  <Field label="Course name" htmlFor="name">
+                    <input id="name" name="name" placeholder="Computer Programming" required />
+                  </Field>
+                  <Field label="Term" htmlFor="term">
+                    <input id="term" name="term" placeholder="Autumn 2026" />
+                  </Field>
+                  <SubmitButton className="w-full" variant="secondary" pendingText="Creating…">
+                    <Plus className="size-4" /> Create course
+                  </SubmitButton>
+                </ActionForm>
+              </CardBody>
+            </Card>
+          )}
         </div>
       </div>
     </>

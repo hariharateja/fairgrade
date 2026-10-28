@@ -107,7 +107,7 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
                   <div className="h-full rounded-full bg-indigo-500" style={{ width: `${((index + 1) / ordered.length) * 100}%` }} />
                 </div>
                 Answer sheet {index + 1} of {ordered.length}
-                {allocation && <span className="text-slate-400">· allocated to {allocation.ta.name}</span>}
+                {allocation && <span className="hidden text-slate-400 sm:inline">· allocated to {allocation.ta.name}</span>}
               </div>
             )}
           </div>
