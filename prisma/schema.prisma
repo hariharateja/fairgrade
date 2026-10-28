@@ -1,0 +1,254 @@
+// FairGrade data model (PostgreSQL, hosted on Supabase).
+//   DATABASE_URL: pooled connection used by the app (Supabase transaction pooler, port 6543)
+//   DIRECT_URL:   direct/session connection used by migrations (port 5432)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  rollNo       String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships     Membership[]
+  coursesOwned    Course[]          @relation("CourseOwner")
+  gradesGiven     Grade[]           @relation("GradeGrader")
+  gradesReceived  Grade[]           @relation("GradeStudent")
+  allocationsAsTa Allocation[]      @relation("AllocationTa")
+  allocationsAsSt Allocation[]      @relation("AllocationStudent")
+  doubtsRaised    Doubt[]           @relation("DoubtRaiser")
+  doubtsResolved  Doubt[]           @relation("DoubtResolver")
+  doubtsAbout     Doubt[]           @relation("DoubtStudent")
+  doubtComments   DoubtComment[]
+  rulings         Ruling[]
+  cribsFiled      Crib[]            @relation("CribStudent")
+  cribsReviewed   Crib[]            @relation("CribReviewer")
+  gradeChanges    GradeHistory[]
+}
+
+// Role is per course: the same person can be a TA in one course and a student in another.
+// Roles: INSTRUCTOR | HEAD_TA | TA | STUDENT
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  role      String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  code          String
+  name          String
+  term          String?
+  ownerId       String
+  studentJoinCode String @unique
+  taJoinCode      String @unique
+  createdAt     DateTime @default(now())
+
+  owner       User         @relation("CourseOwner", fields: [ownerId], references: [id])
+  memberships Membership[]
+  exams       Exam[]
+}
+
+// status: DRAFT -> GRADING -> PUBLISHED -> CLOSED
+model Exam {
+  id            String    @id @default(cuid())
+  courseId      String
+  title         String
+  totalMarks    Float
+  status        String    @default("DRAFT")
+  blindGrading  Boolean   @default(false)
+  cribDeadline  DateTime?
+  createdAt     DateTime  @default(now())
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions   Question[]
+  grades      Grade[]
+  allocations Allocation[]
+  doubts      Doubt[]
+  cribs       Crib[]
+}
+
+model Question {
+  id          String  @id @default(cuid())
+  examId      String
+  label       String // "Q1", "Q2b", ...
+  order       Int
+  maxMarks    Float
+  prompt      String  @default("")
+  modelAnswer String  @default("")
+
+  exam        Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  rubricItems RubricItem[]
+  grades      Grade[]
+  doubts      Doubt[]
+  rulings     Ruling[]
+  cribs       Crib[]
+}
+
+// A single rubric criterion. Negative marks model deductions ("-1 missing units").
+model RubricItem {
+  id          String @id @default(cuid())
+  questionId  String
+  order       Int
+  description String
+  marks       Float
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+// Which TA grades which student's script for an exam.
+model Allocation {
+  id        String @id @default(cuid())
+  examId    String
+  studentId String
+  taId      String
+
+  exam    Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student User @relation("AllocationStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  ta      User @relation("AllocationTa", fields: [taId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, studentId])
+}
+
+model Grade {
+  id              String   @id @default(cuid())
+  examId          String
+  questionId      String
+  studentId       String
+  graderId        String
+  marks           Float
+  appliedItemIds  String   @default("[]") // JSON array of RubricItem ids
+  // True when the TA typed a total instead of letting the rubric compute it.
+  // Rubric edits only recompute grades that are not overridden.
+  manualOverride  Boolean  @default(false)
+  comment         String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  student  User     @relation("GradeStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  grader   User     @relation("GradeGrader", fields: [graderId], references: [id])
+  history  GradeHistory[]
+  cribs    Crib[]
+
+  @@unique([questionId, studentId])
+}
+
+// Audit trail: every change to a grade after it is first entered.
+model GradeHistory {
+  id          String   @id @default(cuid())
+  gradeId     String
+  oldMarks    Float
+  newMarks    Float
+  changedById String
+  reason      String
+  createdAt   DateTime @default(now())
+
+  grade     Grade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  changedBy User  @relation(fields: [changedById], references: [id])
+}
+
+// A TA unsure how to grade an answer uploads a photo; the AI suggests marks against the rubric.
+// status: AI_SUGGESTED | ESCALATED | RESOLVED
+model Doubt {
+  id              String    @id @default(cuid())
+  examId          String
+  questionId      String
+  studentId       String?
+  raisedById      String
+  imagePaths      String    @default("[]") // JSON array of stored file names
+  note            String    @default("")
+  status          String    @default("AI_SUGGESTED")
+  aiMode          String    @default("live") // "live" | "demo"
+  aiMarks         Float?
+  aiConfidence    String?   // "high" | "medium" | "low"
+  aiTranscription String?
+  aiAnalysis      String?   // JSON: { criteria: [...], rationale, proposedRuling }
+  finalMarks      Float?
+  resolutionNote  String?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  student    User?    @relation("DoubtStudent", fields: [studentId], references: [id])
+  raisedBy   User     @relation("DoubtRaiser", fields: [raisedById], references: [id])
+  resolvedBy User?    @relation("DoubtResolver", fields: [resolvedById], references: [id])
+  comments   DoubtComment[]
+  rulings    Ruling[]
+}
+
+model DoubtComment {
+  id        String   @id @default(cuid())
+  doubtId   String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  doubt  Doubt @relation(fields: [doubtId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id])
+}
+
+// A shared grading precedent for a question. Every TA sees these, and the AI reads them
+// so the 50th TA facing an edge case gets the same answer as the first.
+model Ruling {
+  id          String   @id @default(cuid())
+  questionId  String
+  doubtId     String?
+  text        String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  doubt     Doubt?   @relation(fields: [doubtId], references: [id], onDelete: SetNull)
+  createdBy User     @relation(fields: [createdById], references: [id])
+}
+
+// A student's regrade request on one question.
+// status: OPEN | ACCEPTED | REJECTED
+model Crib {
+  id             String    @id @default(cuid())
+  examId         String
+  questionId     String
+  gradeId        String
+  studentId      String
+  rubricItemId   String?   // the rubric line the student is citing
+  reason         String
+  imagePaths     String    @default("[]")
+  status         String    @default("OPEN")
+  aiMode         String?
+  aiVerdict      String?   // "likely_valid" | "likely_invalid" | "unclear"
+  aiAnalysis     String?
+  aiSuggestedMarks Float?
+  reviewerId     String?
+  marksBefore    Float
+  marksAfter     Float?
+  response       String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  grade    Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  student  User     @relation("CribStudent", fields: [studentId], references: [id])
+  reviewer User?    @relation("CribReviewer", fields: [reviewerId], references: [id])
+}
