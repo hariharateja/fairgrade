@@ -88,6 +88,21 @@ AI requests can take up to a minute, so pages that call the AI set `maxDuration 
 
 Changing the data model later: edit `prisma/schema.prisma`, run `npx prisma migrate dev --name <change>` against your Supabase database, commit the new migration folder, and push.
 
+## Android app
+
+The Android app (`android/`, built with [Capacitor](https://capacitorjs.com)) is a native shell around the hosted site, so every web deploy reaches the app without a new APK. On top of the website it adds **Google's ML Kit Document Scanner**: the **Scan** button on the grading screen opens the native scanner (edge detection, cropping, cleanup, multi-page) and uploads the result as a PDF. In a normal browser the same button photographs pages one at a time and builds the PDF on the phone.
+
+Build a debug APK (needs JDK 21 and the Android SDK with platform 36):
+
+```bash
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`. Copy it to a phone and allow "Install unknown apps" to try it. To point an emulator at your local dev server instead of the live site, run `FAIRGRADE_APP_URL=http://10.0.2.2:3000 npx cap sync android` before building. App icons and splash screens are generated from `assets/` with `npx @capacitor/assets generate --android`.
+
+Publishing to the Play Store additionally needs a release keystore, `./gradlew bundleRelease`, and a Google Play developer account.
+
 ## How it works
 
 ```

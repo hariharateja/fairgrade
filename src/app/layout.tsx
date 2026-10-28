@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], axes: ["opsz", "SOFT"] });
 
 export const metadata: Metadata = {
-  title: "FairGrade · Consistent grading for large courses",
+  title: "FairGrade · Clear, accountable grading",
   description:
-    "Rubric-driven grading for 300-student courses: AI help on doubtful answers, shared rulings, grader-bias detection and peaceful cribs.",
+    "The grading platform for university courses: rubric-based marking, an AI grading assistant, scanned answer sheets, accountable TAs and evidence-based cribs.",
 };
 
 function initials(name: string) {
@@ -78,8 +78,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">{children}</main>
         <footer className="border-t border-slate-200/70 bg-white/60">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-slate-500">
-            <span>FairGrade: same answer, same marks, whoever grades it.</span>
-            <span>Built for large university courses · ET 610 project</span>
+            <span>FairGrade · Clear, accountable grading for every course.</span>
+            <span>© {new Date().getFullYear()} FairGrade</span>
           </div>
         </footer>
       </body>

@@ -5,3 +5,7 @@
 !.env.example
 prisma/*.db
 uploads
+
+# The Android app is built separately.
+android
+mobile

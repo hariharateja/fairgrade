@@ -15,10 +15,10 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
         <div className="relative mt-auto">
           <Quote className="size-8 text-amber-300" />
           <p className="mt-3 font-display text-2xl leading-snug">
-            Twelve TAs, one standard. The rubric decides the marks, not who happened to pick up your paper.
+            Every mark explained, every grader accountable, every crib settled with evidence.
           </p>
           <ul className="mt-8 space-y-2.5 text-sm text-indigo-100">
-            {["AI help on doubtful answers, with reasons", "Shared rulings for every edge case", "Bias checks before results go out"].map((t) => (
+            {["An AI assistant for tricky answers", "Scanned answer sheets with every result", "Cribs backed by the rubric, not arguments"].map((t) => (
               <li key={t} className="flex items-center gap-2">
                 <CircleCheck className="size-4 text-amber-300" /> {t}
               </li>
