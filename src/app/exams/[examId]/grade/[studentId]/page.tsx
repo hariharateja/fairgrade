@@ -5,7 +5,8 @@ import { requireExam, canEditGrades, isModerator } from "@/lib/access";
 import { saveScript } from "@/app/actions/grading";
 import { GradingSheet, type SheetQuestion } from "@/components/grading-sheet";
 import { SheetUploader } from "@/components/sheet-uploader";
-import { Badge, EmptyState, Notice } from "@/components/ui";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Avatar, Badge, Card, EmptyState, LinkButton, Notice } from "@/components/ui";
 import { parseJson, studentLabel } from "@/lib/utils";
 
 export default async function GradeScript({ params, searchParams }: PageProps<"/exams/[examId]/grade/[studentId]">) {
@@ -88,32 +89,42 @@ export default async function GradeScript({ params, searchParams }: PageProps<"/
   const notMine = allocation && allocation.taId !== user.id;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link href={`/exams/${examId}/grade${suffix}`} className="text-sm text-slate-500 hover:underline">
-            ← Back to answer sheets
-          </Link>
-          <h2 className="text-xl font-semibold">{studentLabel(exam, student)}</h2>
-          {index >= 0 && (
-            <p className="text-sm text-slate-500">
-              Answer sheet {index + 1} of {ordered.length}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          {prev && (
-            <Link href={`/exams/${examId}/grade/${prev.id}${suffix}`} className="rounded-md px-2 py-1 text-slate-600 hover:bg-slate-100">
-              ← {prev.label}
+    <div className="space-y-5">
+      <Card className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <Avatar name={exam.blindGrading ? "?" : student.name} size="lg" />
+          <div className="min-w-0">
+            <Link
+              href={`/exams/${examId}/grade${suffix}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-700"
+            >
+              <ChevronLeft className="size-3.5" /> All answer sheets
             </Link>
-          )}
-          {next && (
-            <Link href={`/exams/${examId}/grade/${next.id}${suffix}`} className="rounded-md px-2 py-1 text-slate-600 hover:bg-slate-100">
-              {next.label} →
-            </Link>
-          )}
+            <h2 className="truncate font-display text-2xl font-semibold tracking-tight text-slate-900">{studentLabel(exam, student)}</h2>
+            {index >= 0 && (
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: `${((index + 1) / ordered.length) * 100}%` }} />
+                </div>
+                Answer sheet {index + 1} of {ordered.length}
+                {allocation && <span className="text-slate-400">· allocated to {allocation.ta.name}</span>}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {prev ? (
+            <LinkButton href={`/exams/${examId}/grade/${prev.id}${suffix}`} variant="secondary" size="sm" title={prev.label}>
+              <ChevronLeft className="size-4" /> Previous
+            </LinkButton>
+          ) : null}
+          {next ? (
+            <LinkButton href={`/exams/${examId}/grade/${next.id}${suffix}`} variant="secondary" size="sm" title={next.label}>
+              Next <ChevronRight className="size-4" />
+            </LinkButton>
+          ) : null}
+        </div>
+      </Card>
 
       {notMine && <Notice tone="amber">This answer sheet is allocated to {allocation.ta.name}. Your changes will still be recorded under the original grader for consistency stats.</Notice>}
       {!editable && (

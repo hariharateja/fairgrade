@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { ChevronRight, ImageIcon, MessageSquareText, Plus, Sparkles } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireExam, isModerator } from "@/lib/access";
-import { DoubtStatusBadge } from "@/components/doubt-status";
-import { Card, EmptyState, LinkButton, Table } from "@/components/ui";
-import { fmt, studentLabel, timeAgo } from "@/lib/utils";
+import { CONFIDENCE_TONE, DoubtStatusBadge } from "@/components/doubt-status";
+import { Avatar, Badge, Card, EmptyState, FilterTabs, LinkButton, cx } from "@/components/ui";
+import { fmt, parseJson, studentLabel, timeAgo } from "@/lib/utils";
 
 const FILTERS = [
   { key: "open", label: "Open" },
@@ -25,32 +26,38 @@ export default async function DoubtsPage({ params, searchParams }: PageProps<"/e
     ...(filter === "escalated" ? { status: "ESCALATED" } : {}),
     ...(filter === "mine" ? { raisedById: user.id } : {}),
   };
-  const doubts = await db.doubt.findMany({
-    where,
-    include: {
-      question: { select: { label: true, maxMarks: true } },
-      raisedBy: { select: { name: true } },
-      student: { select: { id: true, name: true, rollNo: true } },
-      _count: { select: { comments: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [doubts, byStatus, mine] = await Promise.all([
+    db.doubt.findMany({
+      where,
+      include: {
+        question: { select: { label: true, maxMarks: true } },
+        raisedBy: { select: { name: true } },
+        student: { select: { id: true, name: true, rollNo: true } },
+        _count: { select: { comments: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.doubt.groupBy({ by: ["status"], where: { examId }, _count: true }),
+    db.doubt.count({ where: { examId, raisedById: user.id } }),
+  ]);
+  const count = (s: string) => byStatus.find((b) => b.status === s)?._count ?? 0;
+  const counts = {
+    open: count("AI_SUGGESTED") + count("ESCALATED"),
+    escalated: count("ESCALATED"),
+    mine,
+    all: byStatus.reduce((n, b) => n + b._count, 0),
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-lg bg-slate-100 p-1 text-sm">
-          {FILTERS.map((f) => (
-            <Link
-              key={f.key}
-              href={`/exams/${examId}/doubts?filter=${f.key}`}
-              className={`rounded-md px-3 py-1.5 ${filter === f.key ? "bg-white font-medium shadow-xs" : "text-slate-600"}`}
-            >
-              {f.label}
-            </Link>
-          ))}
-        </div>
-        <LinkButton href={`/exams/${examId}/doubts/new`}>+ Raise a doubt</LinkButton>
+        <FilterTabs
+          active={filter}
+          items={FILTERS.map((f) => ({ key: f.key, label: f.label, href: `/exams/${examId}/doubts?filter=${f.key}`, count: counts[f.key] }))}
+        />
+        <LinkButton href={`/exams/${examId}/doubts/new`}>
+          <Plus className="size-4" /> Raise a doubt
+        </LinkButton>
       </div>
 
       <p className="text-sm text-slate-600">
@@ -61,48 +68,62 @@ export default async function DoubtsPage({ params, searchParams }: PageProps<"/e
       {doubts.length === 0 ? (
         <EmptyState title="No doubts here">When a TA is unsure about an answer, they photograph it and raise a doubt.</EmptyState>
       ) : (
-        <Card>
-          <Table>
-            <thead>
-              <tr>
-                <th>Question</th>
-                <th>Answer sheet</th>
-                <th>Raised by</th>
-                <th>AI suggests</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {doubts.map((d) => (
-                <tr key={d.id}>
-                  <td className="font-medium">{d.question.label}</td>
-                  <td className="text-slate-600">{d.student ? studentLabel(exam, d.student, moderator) : "–"}</td>
-                  <td className="text-slate-600">
-                    {d.raisedBy.name}
-                    <div className="text-xs text-slate-400">{timeAgo(d.createdAt)}</div>
-                  </td>
-                  <td className="font-mono tabular-nums">
-                    {d.status === "RESOLVED" && d.finalMarks !== null
-                      ? `${fmt(d.finalMarks)} (final)`
-                      : d.aiMarks !== null
-                        ? `${fmt(d.aiMarks)} / ${fmt(d.question.maxMarks)}`
-                        : "–"}
-                  </td>
-                  <td>
-                    <DoubtStatusBadge status={d.status} />
-                    {d._count.comments > 0 && <span className="ml-2 text-xs text-slate-500">{d._count.comments} 💬</span>}
-                  </td>
-                  <td className="text-right">
-                    <Link href={`/exams/${examId}/doubts/${d.id}`} className="font-medium text-indigo-700 hover:underline">
-                      Open
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
+        <div className="space-y-3">
+          {doubts.map((d) => {
+            const photos = parseJson<string[]>(d.imagePaths, []).length;
+            const resolved = d.status === "RESOLVED";
+            const shownMarks = resolved && d.finalMarks !== null ? d.finalMarks : d.aiMarks;
+            return (
+              <Link key={d.id} href={`/exams/${examId}/doubts/${d.id}`} className="group block">
+                <Card
+                  className={cx(
+                    "flex items-center gap-4 px-4 py-4 transition group-hover:-translate-y-0.5 group-hover:border-indigo-200 group-hover:shadow-lg group-hover:shadow-indigo-900/5 sm:px-5",
+                    d.status === "ESCALATED" && "border-l-4 border-l-amber-400",
+                  )}
+                >
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-indigo-50 font-display text-base font-semibold text-indigo-700">
+                    {d.question.label}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-slate-900">
+                        {d.student ? studentLabel(exam, d.student, moderator) : "General question"}
+                      </span>
+                      <DoubtStatusBadge status={d.status} />
+                      {!resolved && d.aiConfidence && <Badge tone={CONFIDENCE_TONE[d.aiConfidence]}>{d.aiConfidence} confidence</Badge>}
+                    </div>
+                    {d.note && <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">&ldquo;{d.note}&rdquo;</p>}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Avatar name={d.raisedBy.name} size="sm" /> {d.raisedBy.name} · {timeAgo(d.createdAt)}
+                      </span>
+                      {photos > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <ImageIcon className="size-3.5" /> {photos}
+                        </span>
+                      )}
+                      {d._count.comments > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <MessageSquareText className="size-3.5" /> {d._count.comments}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="hidden text-right sm:block">
+                    <div className="flex items-center justify-end gap-1 text-xs font-medium text-slate-500">
+                      {resolved ? "Final" : <><Sparkles className="size-3 text-indigo-500" /> AI suggests</>}
+                    </div>
+                    <div className="font-mono text-xl font-semibold text-slate-900 tabular-nums">
+                      {shownMarks === null ? "–" : fmt(shownMarks)}
+                      <span className="text-sm font-normal text-slate-400"> / {fmt(d.question.maxMarks)}</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="size-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       )}
     </div>
   );

@@ -4,7 +4,8 @@ import { requireExam } from "@/lib/access";
 import { aiMode } from "@/lib/ai";
 import { createDoubt } from "@/app/actions/doubts";
 import { ActionForm, PhotoInput, SubmitButton } from "@/components/forms";
-import { Card, CardBody, CardHeader, Field, Notice } from "@/components/ui";
+import { ChevronLeft, Sparkles } from "lucide-react";
+import { Card, CardBody, Field, Notice } from "@/components/ui";
 import { fmt, studentLabel } from "@/lib/utils";
 
 // Server actions on this page call the AI model, which can take up to a minute or two.
@@ -35,15 +36,33 @@ export default async function NewDoubt({ params, searchParams }: PageProps<"/exa
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <Link href={`/exams/${examId}/doubts`} className="text-sm text-slate-500 hover:underline">
-        ← All doubts
+      <Link href={`/exams/${examId}/doubts`} className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-indigo-700">
+        <ChevronLeft className="size-4" /> All doubts
       </Link>
-      <Card>
-        <CardHeader
-          title="Raise a grading doubt"
-          description="Photograph the answer you're unsure about. The AI reads it, checks every rubric criterion and the staff rulings, and suggests marks with reasons. You or the instructor make the final call."
-        />
-        <CardBody>
+      <Card className="overflow-hidden">
+        <div className="relative bg-gradient-to-br from-indigo-600 to-indigo-800 px-6 py-6 text-white">
+          <div className="bg-dots-light absolute inset-0" aria-hidden />
+          <div className="relative flex items-start gap-4">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/20">
+              <Sparkles className="size-5 text-amber-300" />
+            </span>
+            <div>
+              <h2 className="font-display text-2xl font-semibold tracking-tight">Raise a grading doubt</h2>
+              <p className="mt-1 text-sm text-indigo-100">
+                Not sure how many marks an answer deserves? Let the AI check it against the rubric and the team&rsquo;s rulings.
+              </p>
+            </div>
+          </div>
+          <ol className="relative mt-5 grid gap-2 text-xs sm:grid-cols-3">
+            {["Photograph the answer", "AI checks every criterion", "You or the instructor decide"].map((step, i) => (
+              <li key={step} className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/15">
+                <span className="grid size-5 place-items-center rounded-full bg-amber-400 text-[11px] font-bold text-amber-950">{i + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+        <CardBody className="!py-6">
           {aiMode() === "demo" && (
             <div className="mb-4">
               <Notice tone="amber">
@@ -80,8 +99,8 @@ export default async function NewDoubt({ params, searchParams }: PageProps<"/exa
             <Field label="What are you unsure about?" hint="e.g. 'Used an iterative method instead of recursion. Does criterion 2 apply?'">
               <textarea name="note" rows={3} />
             </Field>
-            <SubmitButton className="w-full" pendingText="AI is reading the answer… (up to a minute)">
-              Get AI suggestion
+            <SubmitButton className="w-full !py-2.5" pendingText="AI is reading the answer… (up to a minute)">
+              <Sparkles className="size-4" /> Get AI suggestion
             </SubmitButton>
           </ActionForm>
         </CardBody>

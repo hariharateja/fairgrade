@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { finishSheetUpload, startSheetUpload } from "@/app/actions/sheets";
-import { Badge, Button, cx } from "./ui";
+import { FileText, Upload } from "lucide-react";
+import { Badge, Button, IconTile, cx } from "./ui";
 
 type Sheet = { id: string; sizeBytes: number; uploadedBy: string; updatedAt: string } | null;
 
@@ -63,30 +64,40 @@ export function SheetUploader({
   return (
     <div
       className={cx(
-        "flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3",
-        sheet ? "border-slate-200 bg-white" : "border-amber-300 bg-amber-50",
+        "flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 sm:px-5",
+        sheet ? "border-slate-200/80 bg-white" : "border-dashed border-amber-300 bg-amber-50/60",
       )}
     >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-900">Scanned answer sheet</span>
-          {sheet ? <Badge tone="green">Uploaded</Badge> : <Badge tone="amber">Missing</Badge>}
-        </div>
-        <p className="text-sm text-slate-600">
-          {sheet
-            ? `${mb(sheet.sizeBytes)} · by ${sheet.uploadedBy} · ${new Date(sheet.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-            : "Scan the whole answer sheet as one PDF. The student sees it with their marks, and crib reviewers use it instead of the paper copy."}
-        </p>
-        {message && <p className={cx("mt-1 text-sm", message.tone === "error" ? "text-red-600" : "text-emerald-700")}>{message.text}</p>}
-        {progress !== null && (
-          <div className="mt-2 h-1.5 w-64 max-w-full overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <IconTile tone={sheet ? "green" : "amber"}>
+          <FileText />
+        </IconTile>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-900">Scanned answer sheet</span>
+            {sheet ? <Badge tone="green">Uploaded</Badge> : <Badge tone="amber">Missing</Badge>}
           </div>
-        )}
+          <p className="text-sm text-slate-600">
+            {sheet
+              ? `${mb(sheet.sizeBytes)} · by ${sheet.uploadedBy} · ${new Date(sheet.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+              : "Scan the whole answer sheet as one PDF. The student sees it with their marks, and crib reviewers use it instead of the paper copy."}
+          </p>
+          {message && <p className={cx("mt-1 text-sm", message.tone === "error" ? "text-red-600" : "text-emerald-700")}>{message.text}</p>}
+          {progress !== null && (
+            <div className="mt-2 h-1.5 w-64 max-w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {sheet && (
-          <a href={`/api/sheets/${sheet.id}`} target="_blank" rel="noreferrer" className="text-sm font-medium text-indigo-700 hover:underline">
+          <a
+            href={`/api/sheets/${sheet.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-medium text-indigo-700 hover:underline"
+          >
             Open PDF
           </a>
         )}
@@ -109,6 +120,7 @@ export function SheetUploader({
               disabled={progress !== null}
               onClick={() => input.current?.click()}
             >
+              {progress === null && <Upload className="size-3.5" />}
               {progress !== null ? `Uploading ${progress}%` : sheet ? "Replace" : "Upload PDF"}
             </Button>
           </>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BookOpenCheck, ClipboardCheck, MessageSquareText, Sparkles } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireExam, isModerator } from "@/lib/access";
 import { allocateScripts, setExamStatus, updateExamSettings } from "@/app/actions/exams";
@@ -70,10 +71,10 @@ export default async function ExamOverview({ params }: PageProps<"/exams/[examId
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Answer sheets marked" value={`${complete.size} / ${students}`} hint={`${scanned.size} of ${students} scanned`} />
-        <Stat label="Questions" value={questions} hint={`${exam.totalMarks} marks total`} />
-        <Stat label="Doubts" value={doubtCount("AI_SUGGESTED") + doubtCount("ESCALATED")} hint={`${doubtCount("ESCALATED")} escalated · ${doubtCount("RESOLVED")} resolved`} />
-        <Stat label="Open cribs" value={cribCount("OPEN")} hint={`${cribCount("ACCEPTED")} accepted · ${cribCount("REJECTED")} rejected`} />
+        <Stat icon={<ClipboardCheck />} label="Answer sheets marked" value={`${complete.size} / ${students}`} hint={`${scanned.size} of ${students} scanned`} />
+        <Stat icon={<BookOpenCheck />} label="Questions" value={questions} hint={`${exam.totalMarks} marks total`} />
+        <Stat icon={<Sparkles />} label="Doubts" value={doubtCount("AI_SUGGESTED") + doubtCount("ESCALATED")} hint={`${doubtCount("ESCALATED")} escalated · ${doubtCount("RESOLVED")} resolved`} />
+        <Stat icon={<MessageSquareText />} label="Open cribs" value={cribCount("OPEN")} hint={`${cribCount("ACCEPTED")} accepted · ${cribCount("REJECTED")} rejected`} />
       </div>
 
       {!isModerator(role) && myRow && (

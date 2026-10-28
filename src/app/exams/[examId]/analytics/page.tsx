@@ -2,7 +2,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireExam } from "@/lib/access";
 import { histogram, mean, summarize, type GraderQuestionStat } from "@/lib/stats";
-import { Badge, Card, CardBody, CardHeader, EmptyState, Notice, Stat, Table, cx } from "@/components/ui";
+import { ClipboardCheck, Gavel, Info, MessageSquareText, PencilLine, TriangleAlert, Users } from "lucide-react";
+import { Avatar, Badge, Card, CardBody, CardHeader, EmptyState, Notice, Stat, Table, cx } from "@/components/ui";
 import { fmt } from "@/lib/utils";
 
 export default async function AnalyticsPage({ params }: PageProps<"/exams/[examId]/analytics">) {
@@ -54,74 +55,140 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
   const totalCribs = cribs.length;
   const acceptedCribs = cribs.filter((c) => c.status === "ACCEPTED").length;
 
+  const questionLabel = (id: string) => questions.find((q) => q.id === id)?.label ?? "?";
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Marks entered" value={grades.length} hint={`${new Set(grades.map((g) => g.studentId)).size} students`} />
-        <Stat label="Possible biases" value={flags.length} hint="grader × question pairs flagged" />
-        <Stat label="Manual overrides" value={`${Math.round((grades.filter((g) => g.manualOverride).length / grades.length) * 100)}%`} hint="of marks bypass the rubric" />
-        <Stat label="Crib acceptance" value={totalCribs ? `${Math.round((acceptedCribs / totalCribs) * 100)}%` : "–"} hint={`${acceptedCribs} of ${totalCribs} cribs`} />
+        <Stat icon={<ClipboardCheck />} label="Marks entered" value={grades.length} hint={`${new Set(grades.map((g) => g.studentId)).size} students`} />
+        <Stat icon={<TriangleAlert />} label="Possible biases" value={flags.length} hint="grader × question pairs" />
+        <Stat
+          icon={<PencilLine />}
+          label="Manual overrides"
+          value={`${Math.round((grades.filter((g) => g.manualOverride).length / grades.length) * 100)}%`}
+          hint="of marks bypass the rubric"
+        />
+        <Stat
+          icon={<MessageSquareText />}
+          label="Crib acceptance"
+          value={totalCribs ? `${Math.round((acceptedCribs / totalCribs) * 100)}%` : "–"}
+          hint={`${acceptedCribs} of ${totalCribs} cribs`}
+        />
       </div>
 
       {flags.length > 0 ? (
-        <Notice tone="amber">
-          <div className="mb-1 font-medium">Graders whose marks differ significantly from everyone else&rsquo;s on the same question:</div>
-          <ul className="list-disc space-y-0.5 pl-5">
-            {flags.map((f) => (
-              <li key={`${f.graderId}-${f.questionId}`}>
-                <strong>{nameOf.get(f.graderId)}</strong> on {questions.find((q) => q.id === f.questionId)?.label}:{" "}
-                {f.flag === "lenient" ? "more lenient" : "harsher"} by {fmt(Math.abs(f.diff ?? 0))} marks on average (
-                {fmt(Math.abs(f.effect ?? 0))} SD, n={f.n}). Consider spot-checking their answer sheets or adding a ruling.
-              </li>
-            ))}
-          </ul>
-        </Notice>
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 px-1 text-sm font-semibold tracking-wide text-slate-500 uppercase">
+            <TriangleAlert className="size-4 text-amber-500" /> Needs a closer look
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {flags.map((f) => {
+              const lenient = f.flag === "lenient";
+              return (
+                <div
+                  key={`${f.graderId}-${f.questionId}`}
+                  className={cx(
+                    "flex items-start gap-3 rounded-2xl border bg-white p-4",
+                    lenient ? "border-emerald-200" : "border-rose-200",
+                  )}
+                >
+                  <Avatar name={nameOf.get(f.graderId) ?? "?"} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-slate-900">{nameOf.get(f.graderId)}</span>
+                      <Badge tone={lenient ? "green" : "red"}>{lenient ? "More lenient" : "Harsher"}</Badge>
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600">
+                        {questionLabel(f.questionId)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      <span className={cx("font-mono font-semibold", lenient ? "text-emerald-700" : "text-rose-700")}>
+                        {lenient ? "+" : "−"}
+                        {fmt(Math.abs(f.diff ?? 0))} marks
+                      </span>{" "}
+                      vs. other graders on average · {fmt(Math.abs(f.effect ?? 0))} SD · {f.n} answer sheets
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Spot-check a few of their answer sheets, or add a ruling for this question.</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       ) : (
         <Notice tone="green">No grader stands out on any question so far. Keep an eye on this as more answer sheets are graded.</Notice>
       )}
 
       <Card>
-        <CardHeader title="Graders at a glance" description="Average marks as a share of each question's maximum, across everything they graded." />
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <Users className="size-4 text-indigo-500" /> Graders at a glance
+            </span>
+          }
+          description="Average marks as a share of each question's maximum, across everything they graded."
+        />
         <Table>
           <thead>
             <tr>
               <th>Grader</th>
               <th>Answer sheets</th>
-              <th className="w-1/4">Avg. score given</th>
+              <th className="w-1/3">Avg. score given</th>
               <th>Overrides</th>
-              <th>Doubts raised</th>
+              <th>Doubts</th>
               <th>Cribs (accepted)</th>
               <th>Flags</th>
             </tr>
           </thead>
           <tbody>
-            {graderRows.map((g) => (
-              <tr key={g.id}>
-                <td className="font-medium">{g.name}</td>
-                <td className="tabular-nums">{g.scripts}</td>
-                <td>
-                  <div className="flex items-center gap-2">
-                    <div className="relative h-2 flex-1 rounded-full bg-slate-100">
-                      <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500" style={{ width: `${g.avgPct * 100}%` }} />
-                      <div className="absolute -inset-y-1 w-0.5 bg-slate-900" style={{ left: `${allPct * 100}%` }} title="Course average" />
+            {graderRows.map((g) => {
+              const delta = g.avgPct - allPct;
+              return (
+                <tr key={g.id}>
+                  <td>
+                    <span className="flex items-center gap-2.5 font-medium">
+                      <Avatar name={g.name} size="sm" /> {g.name}
+                    </span>
+                  </td>
+                  <td className="tabular-nums">{g.scripts}</td>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-2.5 flex-1 rounded-full bg-slate-100">
+                        <div
+                          className={cx(
+                            "absolute inset-y-0 left-0 rounded-full",
+                            Math.abs(delta) < 0.05 ? "bg-indigo-400" : delta > 0 ? "bg-emerald-400" : "bg-rose-400",
+                          )}
+                          style={{ width: `${g.avgPct * 100}%` }}
+                        />
+                        <div className="absolute -inset-y-1 w-0.5 rounded bg-slate-900" style={{ left: `${allPct * 100}%` }} title="Average across all graders" />
+                      </div>
+                      <span className="w-10 text-right font-mono text-xs tabular-nums">{Math.round(g.avgPct * 100)}%</span>
                     </div>
-                    <span className="w-10 text-right text-xs tabular-nums">{Math.round(g.avgPct * 100)}%</span>
-                  </div>
-                </td>
-                <td className="tabular-nums">{Math.round(g.overrideRate * 100)}%</td>
-                <td className="tabular-nums">{g.doubts}</td>
-                <td className="tabular-nums">
-                  {g.cribs}
-                  {g.acceptRate !== null && <span className="text-slate-500"> ({Math.round(g.acceptRate * 100)}%)</span>}
-                </td>
-                <td>{g.flags > 0 ? <Badge tone="amber">{g.flags}</Badge> : <span className="text-slate-400">–</span>}</td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="tabular-nums">{Math.round(g.overrideRate * 100)}%</td>
+                  <td className="tabular-nums">{g.doubts}</td>
+                  <td className="tabular-nums">
+                    {g.cribs}
+                    {g.acceptRate !== null && <span className="text-slate-500"> ({Math.round(g.acceptRate * 100)}%)</span>}
+                  </td>
+                  <td>{g.flags > 0 ? <Badge tone="amber">{g.flags}</Badge> : <span className="text-slate-300">–</span>}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
-        <CardBody className="text-xs text-slate-500">
-          The black tick is the average across all graders ({Math.round(allPct * 100)}%). A high crib-acceptance rate is another sign a grader
-          was too strict.
+        <CardBody className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-slate-100 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-0.5 rounded bg-slate-900" /> Average across all graders ({Math.round(allPct * 100)}%)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-full bg-emerald-400" /> above
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-full bg-rose-400" /> below
+          </span>
+          <span>A high crib-acceptance rate is another sign a grader was too strict.</span>
         </CardBody>
       </Card>
 
@@ -133,41 +200,59 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
           q.maxMarks + 1,
         );
         const peak = Math.max(...hist, 1);
+        const questionFlags = s.graders.filter((g) => g.flag).length;
         return (
-          <Card key={q.id}>
-            <CardHeader
-              title={q.label}
-              description={`${s.n} answer sheets · mean ${fmt(s.mean)} / ${fmt(q.maxMarks)} · SD ${fmt(s.sd)}`}
-              action={
-                <Link href={`/exams/${examId}/rulings`} className="text-sm text-indigo-700 hover:underline">
-                  Rulings →
-                </Link>
-              }
-            />
-            <div className="grid gap-6 p-5 md:grid-cols-[14rem_1fr]">
-              <div>
-                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Distribution</div>
-                <div className="flex h-24 items-end gap-0.5">
-                  {hist.map((count, i) => (
-                    <div key={i} className="flex-1 rounded-t bg-indigo-200" style={{ height: `${(count / peak) * 100}%` }} title={`${i} marks: ${count}`} />
-                  ))}
+          <Card key={q.id} className="overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 font-display font-semibold text-indigo-700">{q.label}</span>
+                <div>
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
+                    {s.n} answer sheets
+                    {questionFlags > 0 && <Badge tone="amber">{questionFlags} flagged</Badge>}
+                  </div>
+                  <div className="text-sm text-slate-500">
+                    Mean <span className="font-mono font-medium text-slate-700">{fmt(s.mean)}</span> / {fmt(q.maxMarks)} · SD{" "}
+                    <span className="font-mono font-medium text-slate-700">{fmt(s.sd)}</span>
+                  </div>
                 </div>
-                <div className="mt-1 flex justify-between text-xs text-slate-400">
+              </div>
+              <Link href={`/exams/${examId}/rulings`} className="inline-flex items-center gap-1 text-sm font-medium text-indigo-700 hover:underline">
+                <Gavel className="size-4" /> Rulings
+              </Link>
+            </div>
+            <div className="grid gap-6 p-5 sm:p-6 md:grid-cols-[15rem_1fr]">
+              <div>
+                <div className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Distribution of marks</div>
+                <div className="relative flex h-28 items-end gap-1 border-b border-slate-200 pb-px">
+                  {hist.map((count, i) => (
+                    <div
+                      key={i}
+                      className="group relative flex-1 rounded-t-md bg-gradient-to-t from-indigo-400 to-indigo-300 transition hover:from-indigo-600 hover:to-indigo-400"
+                      style={{ height: `${Math.max((count / peak) * 100, count ? 6 : 2)}%` }}
+                      title={`${i} marks: ${count} student${count === 1 ? "" : "s"}`}
+                    />
+                  ))}
+                  <div
+                    className="absolute -top-1 bottom-0 w-0.5 bg-amber-500"
+                    style={{ left: `${((s.mean + 0.5) / Math.max(hist.length, 1)) * 100}%` }}
+                    title={`Mean ${fmt(s.mean)}`}
+                  />
+                </div>
+                <div className="mt-1 flex justify-between font-mono text-[11px] text-slate-400">
                   <span>0</span>
+                  <span className="text-amber-600">mean {fmt(s.mean)}</span>
                   <span>{fmt(q.maxMarks)}</span>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="min-w-0 overflow-x-auto">
+                <div className="mb-2 flex items-center justify-between text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                  <span>Grader vs. everyone else</span>
+                  <span className="hidden font-normal tracking-normal normal-case sm:inline">
+                    <span className="text-rose-500">← harsher</span> · <span className="text-emerald-600">more lenient →</span>
+                  </span>
+                </div>
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                      <th className="pb-2 font-medium">Grader</th>
-                      <th className="pb-2 font-medium">n</th>
-                      <th className="pb-2 font-medium">Mean</th>
-                      <th className="w-2/5 pb-2 font-medium">vs. other graders</th>
-                      <th className="pb-2 font-medium" />
-                    </tr>
-                  </thead>
                   <tbody>
                     {s.graders.map((g) => (
                       <GraderRow key={g.graderId} stat={g} name={nameOf.get(g.graderId) ?? "Former staff"} max={q.maxMarks} />
@@ -181,8 +266,14 @@ export default async function AnalyticsPage({ params }: PageProps<"/exams/[examI
       })}
 
       <Card>
-        <CardHeader title="How this works" />
-        <CardBody className="space-y-2 text-sm text-slate-600">
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <Info className="size-4 text-indigo-500" /> How this works
+            </span>
+          }
+        />
+        <CardBody className="grid gap-4 text-sm leading-relaxed text-slate-600 md:grid-cols-2">
           <p>
             Answer sheets are allocated randomly, so each grader&rsquo;s students are a fair sample of the class and their average on a question
             should match everyone else&rsquo;s. For every grader and question we compare the grader&rsquo;s marks with all other graders&rsquo;
@@ -203,30 +294,39 @@ function GraderRow({ stat, name, max }: { stat: GraderQuestionStat; name: string
   // Diverging bar centred on zero; full width = 25% of the question's max marks.
   const width = Math.min(50, (Math.abs(diff) / (max * 0.25)) * 50);
   return (
-    <tr className="border-t border-slate-100">
-      <td className="py-2 font-medium">{name}</td>
-      <td className="py-2 tabular-nums">{stat.n}</td>
-      <td className="py-2 font-mono tabular-nums">{fmt(stat.mean)}</td>
-      <td className="py-2">
+    <tr className="border-t border-slate-100 first:border-t-0">
+      <td className="py-2.5 pr-3">
+        <span className="flex items-center gap-2 font-medium whitespace-nowrap">
+          <Avatar name={name} size="sm" /> {name}
+        </span>
+      </td>
+      <td className="py-2.5 pr-3 text-xs whitespace-nowrap text-slate-500">
+        n={stat.n} · <span className="font-mono text-slate-700">{fmt(stat.mean)}</span>
+      </td>
+      <td className="w-1/2 py-2.5">
         {stat.diff === null ? (
           <span className="text-xs text-slate-400">only grader</span>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="relative h-3 flex-1">
-              <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
+            <div className="relative h-3.5 flex-1 rounded-full bg-slate-50">
+              <div className="absolute -inset-y-0.5 left-1/2 w-px bg-slate-300" />
               <div
-                className={cx("absolute inset-y-0.5 rounded-sm", diff >= 0 ? "bg-emerald-400" : "bg-rose-400", stat.flag && "ring-2 ring-amber-400")}
+                className={cx(
+                  "absolute inset-y-0.5 rounded-full",
+                  diff >= 0 ? "bg-gradient-to-r from-emerald-300 to-emerald-500" : "bg-gradient-to-l from-rose-300 to-rose-500",
+                  stat.flag && "ring-2 ring-amber-400 ring-offset-1",
+                )}
                 style={diff >= 0 ? { left: "50%", width: `${width}%` } : { right: "50%", width: `${width}%` }}
               />
             </div>
-            <span className="w-14 text-right font-mono text-xs tabular-nums">
+            <span className={cx("w-12 text-right font-mono text-xs font-semibold tabular-nums", diff > 0 ? "text-emerald-700" : diff < 0 ? "text-rose-700" : "text-slate-500")}>
               {diff > 0 ? "+" : ""}
               {fmt(diff)}
             </span>
           </div>
         )}
       </td>
-      <td className="py-2 text-right">
+      <td className="py-2.5 pl-3 text-right">
         {stat.flag ? (
           <Badge tone={stat.flag === "lenient" ? "green" : "red"}>{stat.flag}</Badge>
         ) : stat.pValue !== null ? (
